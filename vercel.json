@@ -1,11 +1,9 @@
 {
-  "buildCommand": "",
-  "outputDirectory": ".",
-  "cleanUrls": true,
-  "rewrites": [
+  "cleanUrls": false,
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/Bayside_Dashboard.html"
+      "src": "/(.*)",
+      "dest": "/Bayside_Dashboard.html"
     }
   ]
 }
