@@ -2,7 +2,7 @@
   "cleanUrls": false,
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/(?!.*\\.(js|css|gif|ico|jpg|jpeg|png|svg|webp|woff|woff2|ttf|eot)$).*",
       "dest": "/Bayside_Dashboard.html"
     }
   ]
