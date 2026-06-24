@@ -1,0 +1,7 @@
+.env
+bayside-reports-d5da0a97108e.json
+*.pyc
+__pycache__/
+.DS_Store
+node_modules/
+.vercel/
