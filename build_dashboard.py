@@ -56,7 +56,13 @@ def _values(service, sheet_id, rng):
 def _fnum(row, idx, default=0.0):
     try:
         v = row[idx]
-        return float(v) if v not in (None, "") else default
+        if v in (None, ""):
+            return default
+        if isinstance(v, str):
+            v = v.replace("$", "").replace(",", "").replace("%", "").strip()
+            if v == "":
+                return default
+        return float(v)
     except (IndexError, ValueError, TypeError):
         return default
 
