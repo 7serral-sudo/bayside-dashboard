@@ -134,6 +134,7 @@ def crunch(
     n_beds:           int,
     week_start:       date,
     week_end:         date,
+    db_beds_actual:   int = 0,  # real bed-assignment count for Date Booked (from Cloudbeds room data)
 ) -> dict:
 
     n_days_week = 7
@@ -213,7 +214,7 @@ def crunch(
                     if str(r.get("status", "")).lower() in CANCEL_S]
     db_src        = source_counts(db_confirmed)
     db_cancel_src = source_counts(db_cancelled)
-    db_beds       = beds_booked(db_confirmed)   # total bed-nights for confirmed DB bookings
+    db_beds       = db_beds_actual   # real room/bed-assignment count, not bed-nights
 
     # -- Last-minute bookings: checked in this week AND booked this week.
     # Built from checkins_arr (server-filtered via checkInFrom/checkInTo, reliable
@@ -418,6 +419,22 @@ def main():
     bookings_created = client.get_bookings_created(week_start, week_end)
     log(f"     {len(bookings_created)} bookings created this week")
 
+    CANCEL_S_DB = {"cancelled", "canceled", "no_show"}
+    db_confirmed_for_beds = [r for r in bookings_created
+                             if str(r.get("status", "")).lower() not in CANCEL_S_DB]
+    log(f"  -> Fetching real bed/room counts for {len(db_confirmed_for_beds)} "
+        f"Date Booked reservations (one Cloudbeds call each) ...")
+    db_beds_actual = 0
+    for r in db_confirmed_for_beds:
+        rid = r.get("reservationID")
+        if not rid:
+            continue
+        try:
+            db_beds_actual += client.get_reservation_bed_count(rid)
+        except Exception as exc:
+            log(f"     WARNING: bed count fetch failed for reservation {rid} -- {exc}")
+    log(f"     Total beds (Date Booked): {db_beds_actual}")
+
     log(f"  -> Nightly occupancy + revenue YTD ({year_start} to {week_end}) ...")
     rooms_sold = client.get_rooms_sold(year_start, week_end)
     rs_by_date = {r["date"]: r for r in rooms_sold}
@@ -491,6 +508,7 @@ def main():
         people_eow, nightly_week, nightly_month, nightly_ytd,
         di_rev_week, di_rev_month, di_rev_ly, di_rev_ytd,
         n_beds, week_start, week_end,
+        db_beds_actual=db_beds_actual,
     )
 
     print_report(stats, week_start, week_end)
