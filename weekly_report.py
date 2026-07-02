@@ -215,6 +215,23 @@ def crunch(
     db_cancel_src = source_counts(db_cancelled)
     db_beds       = beds_booked(db_confirmed)   # total bed-nights for confirmed DB bookings
 
+    # -- Last-minute bookings: checked in this week AND booked this week.
+    # Built from checkins_arr (server-filtered via checkInFrom/checkInTo, reliable
+    # for any date range) rather than bookings_created (which relies on Cloudbeds
+    # returning results newest-first to know when to stop paginating -- that
+    # assumption breaks down for older weeks and silently returns garbage).
+    last_minute_count = 0
+    for r in checkins_arr:
+        dc_str = r.get("dateCreated", "")
+        if not dc_str:
+            continue
+        try:
+            dc_date = date.fromisoformat(dc_str[:10])
+        except ValueError:
+            continue
+        if week_start <= dc_date <= week_end:
+            last_minute_count += 1
+
     return {
         # Weekly summary
         "total_bookings":        total_bookings_week,
@@ -238,6 +255,7 @@ def crunch(
         "db_total":        len(db_confirmed),
         "db_cancellations": len(db_cancelled),
         "db_beds":         db_beds,
+        "last_minute_bookings": last_minute_count,
         # Occupancy
         "occ_week":   occ_week,
         "occ_month":  occ_month,
