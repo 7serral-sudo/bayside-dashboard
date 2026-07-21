@@ -442,19 +442,11 @@ def main():
             log(f"     WARNING: bed count fetch failed for reservation {rid} -- {exc}")
     log(f"     Total beds (Date Booked): {db_beds_actual}")
 
-    log("  -> Long-termers (guests in house staying >28 nights) ...")
+    log("  -> Long-termers (chained back-to-back bookings >28 nights, 26-week lookback) ...")
     LONG_TERM_NIGHTS = 28
     long_termers_count = 0
     try:
-        guests_in_house = client.get_guests_in_house(week_end)
-        for g in guests_in_house:
-            try:
-                ci = date.fromisoformat(g["startDate"])
-                co = date.fromisoformat(g["endDate"])
-                if (co - ci).days > LONG_TERM_NIGHTS:
-                    long_termers_count += 1
-            except (KeyError, ValueError):
-                continue
+        long_termers_count = client.get_long_termers_count(week_end, min_nights=LONG_TERM_NIGHTS)
     except Exception as exc:
         log(f"     WARNING: long-termers fetch failed -- {exc}")
     log(f"     Long-termers (>{LONG_TERM_NIGHTS} nights): {long_termers_count}")
