@@ -386,37 +386,79 @@
       <div class="kpi-card">
         <div class="kpi-label">Occupancy</div>
         <div class="kpi-value">79.9%</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs YTD avg: 81.2%</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last week: 73.1%</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Average Daily Rate</div>
         <div class="kpi-value">$30.32</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs YTD avg: $37.47</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last week: $31.43</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Check-ins This Week</div>
         <div class="kpi-value">47</div>
-        <div class="kpi-sub" style="color: #6b7280;">People in house: 61</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last week: 60</div>
       </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">YTD Revenue</div>
-        <div class="kpi-value">$498.0k</div>
-        <div class="kpi-sub" style="color: #6b7280;">Through week 28</div>
+        <div class="kpi-label">This Week Bookings</div>
+        <div class="kpi-value">49</div>
+        <div class="kpi-sub" style="color: #6b7280;">Reservations created this week</div>
       </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">MTD Revenue (Jul)</div>
+        <div class="kpi-label">Long-Termers</div>
+        <div class="kpi-value">20</div>
+        <div class="kpi-sub" style="color: #6b7280;">Guests staying over 28 nights</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THIS MONTH SNAPSHOT -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-40">
+    <h2 class="section-title">This Month Performance</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="kpi-card">
+        <div class="kpi-label">Occupancy (Jul)</div>
+        <div class="kpi-value">76.1%</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last month: 79.6%</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">ADR (Jul)</div>
+        <div class="kpi-value">$30.66</div>
+        <div class="kpi-sub" style="color: #6b7280;">Month-to-date average daily rate</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Revenue (Jul)</div>
         <div class="kpi-value">$27.6k</div>
         <div class="kpi-sub" style="color: #6b7280;">vs Jul 2025: $36.6k (-25%)</div>
       </div>
+    </div>
+  </section>
+
+  <!-- THIS YEAR SNAPSHOT -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-40">
+    <h2 class="section-title">This Year Performance</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="kpi-card">
+        <div class="kpi-label">Occupancy YTD</div>
+        <div class="kpi-value">81.2%</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last year: 69.1%</div>
+      </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">YTD Check-ins</div>
-        <div class="kpi-value">2,045</div>
-        <div class="kpi-sub" style="color: #6b7280;">Total guests year-to-date</div>
+        <div class="kpi-label">ADR YTD</div>
+        <div class="kpi-value">$37.47</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last year: $38.00</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Revenue YTD</div>
+        <div class="kpi-value">$498.0k</div>
+        <div class="kpi-sub" style="color: #6b7280;">Through week 28</div>
       </div>
     </div>
   </section>
@@ -441,50 +483,16 @@
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">Weekly Check-ins</div>
+        <div class="chart-title">Monthly Check-ins</div>
         <div class="relative h-64">
           <canvas id="ciChart"></canvas>
         </div>
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">Top Channels Year-to-Date</div>
-        <div style="padding: 20px 0;">
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; background: #5ed29c; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 12px;">1</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; color: #e8f0f5;">Booking.com</div>
-              <div style="font-size: 11px; color: #6b7280;">72% · 1463 check-ins</div>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; background: #4ca57a; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 12px;">2</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; color: #e8f0f5;">Hostelworld</div>
-              <div style="font-size: 11px; color: #6b7280;">9% · 182 check-ins</div>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; background: #4d7368; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 12px;">3</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; color: #e8f0f5;">Walk-in & Phone</div>
-              <div style="font-size: 11px; color: #6b7280;">8% · 156 check-ins</div>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; background: #5a9b8e; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 12px;">4</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; color: #e8f0f5;">Website</div>
-              <div style="font-size: 11px; color: #6b7280;">5% · 97 check-ins</div>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; background: #3f8f6a; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 12px;">5</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; color: #e8f0f5;">Expedia</div>
-              <div style="font-size: 11px; color: #6b7280;">4% · 83 check-ins</div>
-            </div>
-          </div>
+        <div class="chart-title">Top Channels by Month</div>
+        <div class="relative h-64">
+          <canvas id="channelsChart"></canvas>
         </div>
       </div>
     </div>
@@ -726,23 +734,46 @@ const chartConfig = {
   }
 };
 
-// Occupancy Chart (year to date)
+// Two-tone (this year vs last year) legend, used by the trend charts below
+const twoToneLegend = {
+  display: true,
+  position: 'top',
+  align: 'end',
+  labels: { color: '#e8f0f5', boxWidth: 12, boxHeight: 12, font: { size: 11 } }
+};
+
+// Occupancy Chart (this year vs last year)
 new Chart(document.getElementById('occChart'), {
   type: 'line',
   data: {
     labels: ["06/01/26", "13/01/26", "20/01/26", "27/01/26", "03/02/26", "10/02/26", "17/02/26", "24/02/26", "03/03/26", "10/03/26", "17/03/26", "24/03/26", "31/03/26", "07/04/26", "14/04/26", "21/04/26", "28/04/26", "05/05/26", "12/05/26", "19/05/26", "26/05/26", "02/06/26", "09/06/26", "16/06/26", "23/06/26", "30/06/26", "07/07/26", "14/07/26"],
-    datasets: [{
-      data: [39.6, 72.8, 96.6, 109.6, 94.3, 55.8, 53.2, 85.2, 86.6, 86.8, 72.8, 67.1, 67.6, 89.8, 91.9, 91.0, 86.4, 80.1, 90.4, 84.5, 87.6, 88.9, 86.4, 84.5, 80.0, 69.7, 73.1, 79.9],
-      borderColor: '#5ed29c',
-      backgroundColor: 'rgba(94, 210, 156, 0.1)',
-      fill: true,
-      tension: 0.3,
-      pointRadius: 0,
-      spanGaps: false
-    }]
+    datasets: [
+      {
+        label: '2026',
+        data: [39.6, 72.8, 96.6, 109.6, 94.3, 55.8, 53.2, 85.2, 86.6, 86.8, 72.8, 67.1, 67.6, 89.8, 91.9, 91.0, 86.4, 80.1, 90.4, 84.5, 87.6, 88.9, 86.4, 84.5, 80.0, 69.7, 73.1, 79.9],
+        borderColor: '#5ed29c',
+        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      },
+      {
+        label: '2025',
+        data: [82.3, 88.5, 97.2, 88.3, 86.1, 97.1, 96.4, 99.8, 105.3, 109.1, 99.1, 90.2, 90.7, 80.4, 69.4, 73.0, 58.9, 49.6, 43.0, 39.1, 42.2, 41.5, 29.4, 29.3, 38.6, 36.8, 33.0, 34.6],
+        borderColor: '#6b7280',
+        backgroundColor: 'transparent',
+        borderDash: [4, 4],
+        fill: false,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      }
+    ]
   },
   options: {
     ...chartConfig,
+    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, min: 0, max: 120, ticks: { ...chartConfig.scales.y.ticks, callback: v => v + '%' } }
@@ -750,23 +781,38 @@ new Chart(document.getElementById('occChart'), {
   }
 });
 
-// ADR Chart (year to date)
+// ADR Chart (this year vs last year)
 new Chart(document.getElementById('adrChart'), {
   type: 'line',
   data: {
     labels: ["07/01/26", "14/01/26", "21/01/26", "28/01/26", "04/02/26", "11/02/26", "18/02/26", "25/02/26", "04/03/26", "11/03/26", "18/03/26", "25/03/26", "01/04/26", "08/04/26", "15/04/26", "22/04/26", "28/04/26", "05/05/26", "12/05/26", "19/05/26", "26/05/26", "02/06/26", "09/06/26", "16/06/26", "23/06/26", "30/06/26", "07/07/26", "14/07/26"],
-    datasets: [{
-      data: [40.73, 38.76, 41.99, 45.79, 41.52, 39.71, 43.26, 43.46, 41.81, 82.82, 38.13, 37.98, 35.0, 35.37, 35.0, 33.56, 33.24, 32.12, 32.56, 31.5, 30.5, 33.15, 32.07, 31.07, 30.14, 30.87, 31.43, 30.32],
-      borderColor: '#5ed29c',
-      backgroundColor: 'rgba(94, 210, 156, 0.1)',
-      fill: true,
-      tension: 0.3,
-      pointRadius: 0,
-      spanGaps: false
-    }]
+    datasets: [
+      {
+        label: '2026',
+        data: [40.73, 38.76, 41.99, 45.79, 41.52, 39.71, 43.26, 43.46, 41.81, 82.82, 38.13, 37.98, 35.0, 35.37, 35.0, 33.56, 33.24, 32.12, 32.56, 31.5, 30.5, 33.15, 32.07, 31.07, 30.14, 30.87, 31.43, 30.32],
+        borderColor: '#5ed29c',
+        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      },
+      {
+        label: '2025',
+        data: [41.97, 40.99, 37.91, 35.57, 33.45, 34.11, 35.14, 39.52, 36.17, 36.57, 74.37, 35.49, 34.15, 31.9, 33.49, 34.1, 34.08, 34.28, 35.11, 34.27, 35.5, 35.66, 35.65, 35.05, 35.19, 37.22, 40.12, 39.05],
+        borderColor: '#6b7280',
+        backgroundColor: 'transparent',
+        borderDash: [4, 4],
+        fill: false,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      }
+    ]
   },
   options: {
     ...chartConfig,
+    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => '$' + v } }
@@ -774,23 +820,54 @@ new Chart(document.getElementById('adrChart'), {
   }
 });
 
-// Check-ins Chart (year to date)
+// Check-ins Chart (monthly, this year vs last year)
 new Chart(document.getElementById('ciChart'), {
   type: 'bar',
   data: {
-    labels: ["07/01/26", "14/01/26", "21/01/26", "28/01/26", "04/02/26", "11/02/26", "18/02/26", "25/02/26", "04/03/26", "11/03/26", "18/03/26", "25/03/26", "01/04/26", "08/04/26", "15/04/26", "22/04/26", "28/04/26", "05/05/26", "12/05/26", "19/05/26", "26/05/26", "02/06/26", "09/06/26", "16/06/26", "23/06/26", "30/06/26", "07/07/26", "14/07/26"],
-    datasets: [{
-      data: [124, 101, 122, 124, 92, 51, 68, 99, 110, 165, 94, 72, 78, 94, 60, 52, 40, 58, 40, 39, 46, 45, 47, 40, 36, 41, 60, 47],
-      backgroundColor: '#5ed29c',
-      borderRadius: 4,
-      borderWidth: 0
-    }]
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"],
+    datasets: [
+      {
+        label: '2026',
+        data: [471, 310, 441, 324, 183, 209, 107],
+        backgroundColor: '#5ed29c',
+        borderRadius: 4,
+        borderWidth: 0
+      },
+      {
+        label: '2025',
+        data: [538, 344, 583, 279, 143, 128, 160],
+        backgroundColor: '#4b5563',
+        borderRadius: 4,
+        borderWidth: 0
+      }
+    ]
   },
   options: {
     ...chartConfig,
+    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => v + ' CI' } }
+    }
+  }
+});
+
+// Top Channels by Month (grouped bar, last ~6 months)
+new Chart(document.getElementById('channelsChart'), {
+  type: 'bar',
+  data: {
+    labels: ["Feb", "Mar", "Apr", "May", "Jun", "Jul"],
+    datasets: [{"label": "Booking.com", "data": [204, 308, 246, 148, 148, 78], "backgroundColor": "#5ed29c", "borderRadius": 3, "borderWidth": 0}, {"label": "Hostelworld", "data": [37, 34, 39, 11, 12, 3], "backgroundColor": "#4ca57a", "borderRadius": 3, "borderWidth": 0}, {"label": "Walk-in & Phone", "data": [35, 24, 26, 8, 22, 6], "backgroundColor": "#4d7368", "borderRadius": 3, "borderWidth": 0}, {"label": "Website", "data": [27, 19, 10, 4, 9, 3], "backgroundColor": "#5a9b8e", "borderRadius": 3, "borderWidth": 0}, {"label": "Expedia", "data": [10, 37, 13, 6, 1, 2], "backgroundColor": "#3f8f6a", "borderRadius": 3, "borderWidth": 0}]
+  },
+  options: {
+    ...chartConfig,
+    plugins: {
+      ...chartConfig.plugins,
+      legend: { display: true, position: 'top', align: 'end', labels: { color: '#e8f0f5', boxWidth: 10, boxHeight: 10, font: { size: 10 } } }
+    },
+    scales: {
+      ...chartConfig.scales,
+      y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => v } }
     }
   }
 });

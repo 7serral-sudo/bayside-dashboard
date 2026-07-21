@@ -386,37 +386,79 @@
       <div class="kpi-card">
         <div class="kpi-label">Occupancy</div>
         <div class="kpi-value">__OCC_WEEK_PCT__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs YTD avg: __OCC_YTD_PCT__</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last week: __OCC_LASTWEEK_PCT__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Average Daily Rate</div>
         <div class="kpi-value">__ADR_WEEK__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs YTD avg: __ADR_YTD__</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last week: __ADR_LASTWEEK__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Check-ins This Week</div>
         <div class="kpi-value">__CHECKINS_WEEK__</div>
-        <div class="kpi-sub" style="color: #6b7280;">People in house: __PEOPLE_IN_HOUSE__</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last week: __CHECKINS_LASTWEEK__</div>
       </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">YTD Revenue</div>
-        <div class="kpi-value">__YTD_REVENUE__</div>
-        <div class="kpi-sub" style="color: #6b7280;">__YTD_REVENUE_WEEK_LABEL__</div>
+        <div class="kpi-label">This Week Bookings</div>
+        <div class="kpi-value">__WEEK_BOOKINGS__</div>
+        <div class="kpi-sub" style="color: #6b7280;">Reservations created this week</div>
       </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">MTD Revenue __MTD_MONTH_LABEL__</div>
+        <div class="kpi-label">Long-Termers</div>
+        <div class="kpi-value">__LONG_TERMERS__</div>
+        <div class="kpi-sub" style="color: #6b7280;">Guests staying over 28 nights</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THIS MONTH SNAPSHOT -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-40">
+    <h2 class="section-title">This Month Performance</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="kpi-card">
+        <div class="kpi-label">Occupancy __MTD_MONTH_LABEL__</div>
+        <div class="kpi-value">__OCC_MONTH_PCT__</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last month: __OCC_LASTMONTH_PCT__</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">ADR __MTD_MONTH_LABEL__</div>
+        <div class="kpi-value">__ADR_MONTH__</div>
+        <div class="kpi-sub" style="color: #6b7280;">Month-to-date average daily rate</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Revenue __MTD_MONTH_LABEL__</div>
         <div class="kpi-value">__MTD_REVENUE__</div>
         <div class="kpi-sub" style="color: #6b7280;">__MTD_YOY_LABEL__</div>
       </div>
+    </div>
+  </section>
+
+  <!-- THIS YEAR SNAPSHOT -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-40">
+    <h2 class="section-title">This Year Performance</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="kpi-card">
+        <div class="kpi-label">Occupancy YTD</div>
+        <div class="kpi-value">__OCC_YTD_PCT__</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last year: __OCC_LASTYEAR_PCT__</div>
+      </div>
 
       <div class="kpi-card">
-        <div class="kpi-label">YTD Check-ins</div>
-        <div class="kpi-value">__YTD_CHECKINS__</div>
-        <div class="kpi-sub" style="color: #6b7280;">Total guests year-to-date</div>
+        <div class="kpi-label">ADR YTD</div>
+        <div class="kpi-value">__ADR_YTD__</div>
+        <div class="kpi-sub" style="color: #6b7280;">vs last year: __ADR_LASTYEAR__</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Revenue YTD</div>
+        <div class="kpi-value">__YTD_REVENUE__</div>
+        <div class="kpi-sub" style="color: #6b7280;">__YTD_REVENUE_WEEK_LABEL__</div>
       </div>
     </div>
   </section>
@@ -441,16 +483,16 @@
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">Weekly Check-ins</div>
+        <div class="chart-title">Monthly Check-ins</div>
         <div class="relative h-64">
           <canvas id="ciChart"></canvas>
         </div>
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">Top Channels Year-to-Date</div>
-        <div style="padding: 20px 0;">
-__TOP_CHANNELS_HTML__
+        <div class="chart-title">Top Channels by Month</div>
+        <div class="relative h-64">
+          <canvas id="channelsChart"></canvas>
         </div>
       </div>
     </div>
@@ -640,23 +682,46 @@ const chartConfig = {
   }
 };
 
-// Occupancy Chart (year to date)
+// Two-tone (this year vs last year) legend, used by the trend charts below
+const twoToneLegend = {
+  display: true,
+  position: 'top',
+  align: 'end',
+  labels: { color: '#e8f0f5', boxWidth: 12, boxHeight: 12, font: { size: 11 } }
+};
+
+// Occupancy Chart (this year vs last year)
 new Chart(document.getElementById('occChart'), {
   type: 'line',
   data: {
     labels: __OCC_CHART_LABELS__,
-    datasets: [{
-      data: __OCC_CHART_DATA__,
-      borderColor: '#5ed29c',
-      backgroundColor: 'rgba(94, 210, 156, 0.1)',
-      fill: true,
-      tension: 0.3,
-      pointRadius: 0,
-      spanGaps: false
-    }]
+    datasets: [
+      {
+        label: '2026',
+        data: __OCC_CHART_DATA__,
+        borderColor: '#5ed29c',
+        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      },
+      {
+        label: '2025',
+        data: __OCC_CHART_DATA_LY__,
+        borderColor: '#6b7280',
+        backgroundColor: 'transparent',
+        borderDash: [4, 4],
+        fill: false,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      }
+    ]
   },
   options: {
     ...chartConfig,
+    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, min: 0, max: 120, ticks: { ...chartConfig.scales.y.ticks, callback: v => v + '%' } }
@@ -664,23 +729,38 @@ new Chart(document.getElementById('occChart'), {
   }
 });
 
-// ADR Chart (year to date)
+// ADR Chart (this year vs last year)
 new Chart(document.getElementById('adrChart'), {
   type: 'line',
   data: {
     labels: __ADR_CHART_LABELS__,
-    datasets: [{
-      data: __ADR_CHART_DATA__,
-      borderColor: '#5ed29c',
-      backgroundColor: 'rgba(94, 210, 156, 0.1)',
-      fill: true,
-      tension: 0.3,
-      pointRadius: 0,
-      spanGaps: false
-    }]
+    datasets: [
+      {
+        label: '2026',
+        data: __ADR_CHART_DATA__,
+        borderColor: '#5ed29c',
+        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      },
+      {
+        label: '2025',
+        data: __ADR_CHART_DATA_LY__,
+        borderColor: '#6b7280',
+        backgroundColor: 'transparent',
+        borderDash: [4, 4],
+        fill: false,
+        tension: 0.3,
+        pointRadius: 0,
+        spanGaps: false
+      }
+    ]
   },
   options: {
     ...chartConfig,
+    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => '$' + v } }
@@ -688,23 +768,54 @@ new Chart(document.getElementById('adrChart'), {
   }
 });
 
-// Check-ins Chart (year to date)
+// Check-ins Chart (monthly, this year vs last year)
 new Chart(document.getElementById('ciChart'), {
   type: 'bar',
   data: {
     labels: __CI_CHART_LABELS__,
-    datasets: [{
-      data: __CI_CHART_DATA__,
-      backgroundColor: '#5ed29c',
-      borderRadius: 4,
-      borderWidth: 0
-    }]
+    datasets: [
+      {
+        label: '2026',
+        data: __CI_CHART_DATA__,
+        backgroundColor: '#5ed29c',
+        borderRadius: 4,
+        borderWidth: 0
+      },
+      {
+        label: '2025',
+        data: __CI_CHART_DATA_LY__,
+        backgroundColor: '#4b5563',
+        borderRadius: 4,
+        borderWidth: 0
+      }
+    ]
   },
   options: {
     ...chartConfig,
+    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => v + ' CI' } }
+    }
+  }
+});
+
+// Top Channels by Month (grouped bar, last ~6 months)
+new Chart(document.getElementById('channelsChart'), {
+  type: 'bar',
+  data: {
+    labels: __CHANNELS_CHART_LABELS__,
+    datasets: __CHANNELS_CHART_DATASETS__
+  },
+  options: {
+    ...chartConfig,
+    plugins: {
+      ...chartConfig.plugins,
+      legend: { display: true, position: 'top', align: 'end', labels: { color: '#e8f0f5', boxWidth: 10, boxHeight: 10, font: { size: 10 } } }
+    },
+    scales: {
+      ...chartConfig.scales,
+      y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => v } }
     }
   }
 });

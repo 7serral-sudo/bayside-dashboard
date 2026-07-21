@@ -135,6 +135,7 @@ def crunch(
     week_start:       date,
     week_end:         date,
     db_beds_actual:   int = 0,  # real bed-assignment count for Date Booked (from Cloudbeds room data)
+    long_termers_count: int = 0,  # guests in house at week end staying >28 nights
 ) -> dict:
 
     n_days_week = 7
@@ -207,6 +208,10 @@ def crunch(
     obn_ytd  = sum(nightly_ytd)
     adr_ytd  = round(di_rev_ytd / obn_ytd, 2) if obn_ytd else 0
 
+    # MTD ADR
+    obn_month = sum(nightly_month)
+    adr_mtd   = round(di_rev_month / obn_month, 2) if obn_month else 0
+
     # -- Date Booked breakdown (reservations created this week, by source)
     db_confirmed = [r for r in bookings_created
                     if str(r.get("status", "")).lower() not in CANCEL_S]
@@ -241,7 +246,9 @@ def crunch(
         "beds_booked_checkins":  beds_booked_checkins,
         "adr":                   round(adr, 2),
         "adr_ytd":               adr_ytd,
+        "adr_mtd":               adr_mtd,
         "people_in_house":       people_in_house,
+        "long_termers":          long_termers_count,
         # Check-ins by source: confirmed count + cancellations per source
         "ci":            {s: ci_src.get(s, 0)        for s in SOURCES},
         "ci_cancel":     {s: ci_cancel_src.get(s, 0) for s in SOURCES},
@@ -435,6 +442,23 @@ def main():
             log(f"     WARNING: bed count fetch failed for reservation {rid} -- {exc}")
     log(f"     Total beds (Date Booked): {db_beds_actual}")
 
+    log("  -> Long-termers (guests in house staying >28 nights) ...")
+    LONG_TERM_NIGHTS = 28
+    long_termers_count = 0
+    try:
+        guests_in_house = client.get_guests_in_house(week_end)
+        for g in guests_in_house:
+            try:
+                ci = date.fromisoformat(g["startDate"])
+                co = date.fromisoformat(g["endDate"])
+                if (co - ci).days > LONG_TERM_NIGHTS:
+                    long_termers_count += 1
+            except (KeyError, ValueError):
+                continue
+    except Exception as exc:
+        log(f"     WARNING: long-termers fetch failed -- {exc}")
+    log(f"     Long-termers (>{LONG_TERM_NIGHTS} nights): {long_termers_count}")
+
     log(f"  -> Nightly occupancy + revenue YTD ({year_start} to {week_end}) ...")
     rooms_sold = client.get_rooms_sold(year_start, week_end)
     rs_by_date = {r["date"]: r for r in rooms_sold}
@@ -509,6 +533,7 @@ def main():
         di_rev_week, di_rev_month, di_rev_ly, di_rev_ytd,
         n_beds, week_start, week_end,
         db_beds_actual=db_beds_actual,
+        long_termers_count=long_termers_count,
     )
 
     print_report(stats, week_start, week_end)

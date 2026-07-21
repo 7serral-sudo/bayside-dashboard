@@ -18,6 +18,15 @@ import sheets_client
 SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_PATH  = os.path.join(SCRIPT_DIR, "dashboard_template.html")
 OUTPUT_PATH    = os.path.join(SCRIPT_DIR, "Bayside_Dashboard.html")
+DATA_2025_PATH = os.path.join(SCRIPT_DIR, "data_2025_reference.json")
+
+# Bed count used for the 2025 comparison line -- 2025's true historical bed
+# count isn't tracked anywhere, so we apply the value known to have been in
+# effect for nearly all of 2026 (83, before the mid-July change to 84) for a
+# self-consistent approximation. This only affects the muted "last year"
+# overlay line, never the primary 2026 figures (which use each week's real
+# contemporaneous bed count).
+LY_N_BEDS = 83
 
 # Review *counts* aren't tracked anywhere in the sheet (only ratings are).
 # Update these by hand when they change; ratings below always come live from the sheet.
@@ -102,8 +111,9 @@ def fetch_occupancy(service, sheet_id):
 
 
 def fetch_performance(service, sheet_id):
-    """Returns list of dicts: date, ci_total, people_in_house, adr, adr_ytd, sources{}."""
-    rows = _values(service, sheet_id, f"{sheets_client.PERF_TAB}!A3:AJ2000")
+    """Returns list of dicts: date, ci_total, people_in_house, adr, adr_ytd,
+    adr_mtd, long_termers, db_total, sources{} (CI by source, for channel charts)."""
+    rows = _values(service, sheet_id, f"{sheets_client.PERF_TAB}!A3:AL2000")
     out = []
     for r in rows:
         if not r or not r[0]:
@@ -114,6 +124,9 @@ def fetch_performance(service, sheet_id):
             "people_in_house":   _fnum(r, sheets_client.CI_BEDS_COL),
             "adr":               _fnum(r, sheets_client.ADR_COL),
             "adr_ytd":           _fnum(r, sheets_client.ADR_YTD_COL),
+            "adr_mtd":           _fnum(r, sheets_client.ADR_MTD_COL),
+            "long_termers":      _fnum(r, sheets_client.LONG_TERMERS_COL),
+            "db_total":          _fnum(r, sheets_client.DB_TOTAL_COL),
             "sources":           {},
         }
         for i, src in enumerate(sheets_client.DISPLAY_SOURCES):
@@ -121,6 +134,15 @@ def fetch_performance(service, sheet_id):
             week["sources"][src] = _fnum(r, col)
         out.append(week)
     return out
+
+
+def load_2025_reference():
+    """Cached full-year 2025 daily occupancy/revenue + monthly check-ins.
+    See fetch_2025_reference.py. Returns None if the cache hasn't been built."""
+    if not os.path.exists(DATA_2025_PATH):
+        return None
+    with open(DATA_2025_PATH, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def fetch_revenue(service, sheet_id):
@@ -180,6 +202,30 @@ def fetch_website_analytics(service, sheet_id):
 
 
 # ---------------------------------------------------------------------------
+# 2025 reference-data helpers
+# ---------------------------------------------------------------------------
+
+def ly_range_sums(ref: dict, start: date, end: date) -> tuple[int, float]:
+    """(accommodations_booked_sum, revenue_sum) for a 2025 date range from the cache."""
+    daily = ref["daily"]
+    booked, rev = 0, 0.0
+    cur = start
+    while cur <= end:
+        day = daily.get(cur.isoformat())
+        if day:
+            booked += day["accommodations_booked"]
+            rev += day["revenue"]
+        cur += timedelta(days=1)
+    return booked, rev
+
+
+def ly_equivalent_week(week_end_2026: date) -> tuple[date, date]:
+    """Same-weekday week in 2025, 364 days (52 weeks) earlier."""
+    ly_end = week_end_2026 - timedelta(days=364)
+    return ly_end - timedelta(days=6), ly_end
+
+
+# ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
 
@@ -222,38 +268,6 @@ def fmt_date_human_short(date_str: str) -> str:
 # Build dynamic HTML blocks
 # ---------------------------------------------------------------------------
 
-def build_top_channels_html(perf_weeks, current_year):
-    totals = {}
-    for w in perf_weeks:
-        try:
-            yr = int(w["date"].split("/")[-1])
-        except (ValueError, IndexError):
-            continue
-        if yr != current_year:
-            continue
-        for src, count in w["sources"].items():
-            totals[src] = totals.get(src, 0) + count
-
-    grand_total = sum(totals.values())
-    ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:5]
-
-    rows = []
-    for i, (src, count) in enumerate(ranked):
-        pct = (count / grand_total * 100) if grand_total else 0
-        color = SOURCE_COLORS[i % len(SOURCE_COLORS)]
-        label = SOURCE_DISPLAY.get(src, src)
-        rows.append(f'''          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; background: {color}; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 12px;">{i+1}</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; color: #e8f0f5;">{label}</div>
-              <div style="font-size: 11px; color: #6b7280;">{pct:.0f}% · {int(count)} check-ins</div>
-            </div>
-          </div>''')
-    if not rows:
-        rows.append('          <div style="color: #6b7280; font-size: 13px;">No data yet</div>')
-    return "\n".join(rows)
-
-
 def build_web_channels_html(channels: dict):
     if not channels or not any(channels.values()):
         return '          <div style="color: #6b7280; font-size: 13px;">No data yet</div>'
@@ -291,6 +305,54 @@ def build_web_device_html(devices: dict):
             f'<span style="color: #5ed29c; font-weight: 700;">{int(count)} ({pct:.0f}%)</span></div>'
         )
     return "\n".join(rows)
+
+
+def build_channels_chart_data(perf_weeks, current_year, n_months=6):
+    """Grouped bar chart data: each channel's confirmed CI count per month,
+    over the last n_months that have occurred this year."""
+    months_with_data = []
+    for m_idx in range(1, 13):
+        month_abbr = sheets_client.MONTHS[m_idx - 1]
+        has_data = any(
+            w["date"].split("/")[1] == f"{m_idx:02d}" and w["date"].endswith(str(current_year))
+            for w in perf_weeks
+        )
+        if has_data:
+            months_with_data.append(month_abbr)
+    months_with_data = months_with_data[-n_months:]
+
+    per_month_totals = {m: {} for m in months_with_data}
+    for w in perf_weeks:
+        try:
+            dd, mm, yyyy = w["date"].split("/")
+        except ValueError:
+            continue
+        if yyyy != str(current_year):
+            continue
+        month_abbr = sheets_client.MONTHS[int(mm) - 1]
+        if month_abbr not in per_month_totals:
+            continue
+        for src, count in w["sources"].items():
+            per_month_totals[month_abbr][src] = per_month_totals[month_abbr].get(src, 0) + count
+
+    grand_totals = {}
+    for m_totals in per_month_totals.values():
+        for src, count in m_totals.items():
+            grand_totals[src] = grand_totals.get(src, 0) + count
+    top_sources = [s for s, _ in sorted(grand_totals.items(), key=lambda kv: kv[1], reverse=True)[:5]]
+
+    datasets = []
+    for i, src in enumerate(top_sources):
+        color = SOURCE_COLORS[i % len(SOURCE_COLORS)]
+        data = [int(per_month_totals[m].get(src, 0)) for m in months_with_data]
+        datasets.append({
+            "label": SOURCE_DISPLAY.get(src, src),
+            "data": data,
+            "backgroundColor": color,
+            "borderRadius": 3,
+            "borderWidth": 0,
+        })
+    return months_with_data, datasets
 
 
 def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list, current_year: int):
@@ -349,20 +411,36 @@ def build(sheet_id: str | None = None, log=print):
     latest_occ  = occ_weeks[-1]
     latest_perf = perf_weeks[-1]
     week_end_str = latest_occ["date"]
+    week_end_date = datetime.strptime(week_end_str, "%d/%m/%Y").date()
     current_year = int(week_end_str.split("/")[-1])
 
     occ_monthly = {w["month"]: w["month_occ"] for w in occ_weeks if w["month"] and w["month_occ"] is not None}
+    ref_2025 = load_2025_reference()
 
-    # -- This Week KPIs --------------------------------------------------
+    # -- This Week KPIs (vs last week) ---------------------------------------
+    prev_occ  = occ_weeks[-2] if len(occ_weeks) > 1 else None
+    prev_perf = perf_weeks[-2] if len(perf_weeks) > 1 else None
+
     occ_week_pct = f'{latest_occ["week_occ"]:.1f}%'
-    occ_ytd_pct  = f'{latest_occ["ytd_occ"]:.1f}%'
+    occ_lastweek_pct = f'{prev_occ["week_occ"]:.1f}%' if prev_occ else 'n/a'
     adr_week     = fmt_money(latest_perf["adr"])
-    adr_ytd      = fmt_money(latest_perf["adr_ytd"])
+    adr_lastweek = fmt_money(prev_perf["adr"]) if prev_perf else 'n/a'
     checkins_week = f'{int(latest_perf["ci_total"]):,}'
-    people_in_house = f'{int(latest_perf["people_in_house"]):,}'
+    checkins_lastweek = f'{int(prev_perf["ci_total"]):,}' if prev_perf else 'n/a'
+    week_bookings = f'{int(latest_perf["db_total"]):,}'
+    long_termers = f'{int(latest_perf["long_termers"]):,}'
+
+    # -- This Month KPIs (vs last month) -------------------------------------
+    current_month_abbr = sheets_client.MONTHS[week_end_date.month - 1]
+    occ_month_val = occ_monthly.get(current_month_abbr)
+    occ_month_pct = f'{occ_month_val:.1f}%' if occ_month_val is not None else 'n/a'
+    month_idx = sheets_client.MONTHS.index(current_month_abbr)
+    prev_month_abbr = sheets_client.MONTHS[month_idx - 1] if month_idx > 0 else None
+    prev_month_occ = occ_monthly.get(prev_month_abbr) if prev_month_abbr else None
+    occ_lastmonth_pct = f'{prev_month_occ:.1f}%' if prev_month_occ is not None else 'n/a'
+    adr_month = fmt_money(latest_perf["adr_mtd"])
 
     # -- Revenue ----------------------------------------------------------
-    current_month_abbr = sheets_client.MONTHS[datetime.strptime(week_end_str, "%d/%m/%Y").month - 1]
     ytd_revenue = sum(v["cy"] for v in revenue.values())
     mtd = revenue.get(current_month_abbr, {"py": 0, "cy": 0})
     mtd_revenue = mtd["cy"]
@@ -377,10 +455,20 @@ def build(sheet_id: str | None = None, log=print):
     week_number = len(occ_weeks)
     ytd_revenue_label = f"Through week {week_number}"
 
-    ytd_checkins = sum(
-        w["ci_total"] for w in perf_weeks
-        if w["date"].endswith(str(current_year))
-    )
+    # -- This Year KPIs (vs last year, via the 2025 reference cache) --------
+    occ_ytd_pct  = f'{latest_occ["ytd_occ"]:.1f}%'
+    adr_ytd      = fmt_money(latest_perf["adr_ytd"])
+    if ref_2025:
+        ly_ytd_end = date(current_year - 1, week_end_date.month, week_end_date.day)
+        ly_booked, ly_rev = ly_range_sums(ref_2025, date(current_year - 1, 1, 1), ly_ytd_end)
+        ly_days = (ly_ytd_end - date(current_year - 1, 1, 1)).days + 1
+        ly_occ_ytd = ly_booked / (LY_N_BEDS * ly_days) * 100 if ly_days else 0
+        ly_adr_ytd = (ly_rev / ly_booked) if ly_booked else 0
+        occ_lastyear_pct = f'{ly_occ_ytd:.1f}%'
+        adr_lastyear = fmt_money(ly_adr_ytd)
+    else:
+        occ_lastyear_pct = 'n/a'
+        adr_lastyear = 'n/a'
 
     # -- Reviews ------------------------------------------------------------
     reviews = reviews or {"google": 0, "booking": 0, "hostelworld": 0, "expedia": 0}
@@ -417,11 +505,46 @@ def build(sheet_id: str | None = None, log=print):
     occ_chart_data    = [round(w["week_occ"], 1) for w in occ_weeks]
     adr_chart_labels = [fmt_date_short(w["date"]) for w in perf_weeks]
     adr_chart_data    = [round(w["adr"], 2) for w in perf_weeks]
-    ci_chart_labels  = adr_chart_labels
-    ci_chart_data     = [int(w["ci_total"]) for w in perf_weeks]
+
+    if ref_2025:
+        occ_chart_data_ly, adr_chart_data_ly = [], []
+        for w in occ_weeks:
+            try:
+                d = datetime.strptime(w["date"], "%d/%m/%Y").date()
+            except ValueError:
+                occ_chart_data_ly.append(None)
+                adr_chart_data_ly.append(None)
+                continue
+            ly_start, ly_end = ly_equivalent_week(d)
+            booked, rev = ly_range_sums(ref_2025, ly_start, ly_end)
+            occ_chart_data_ly.append(round(booked / (LY_N_BEDS * 7) * 100, 1))
+            adr_chart_data_ly.append(round(rev / booked, 2) if booked else None)
+    else:
+        occ_chart_data_ly = [None] * len(occ_weeks)
+        adr_chart_data_ly = [None] * len(occ_weeks)
+
+    # Monthly check-ins, this year vs last year
+    ci_by_month = {m: 0 for m in sheets_client.MONTHS}
+    for w in perf_weeks:
+        try:
+            dd, mm, yyyy = w["date"].split("/")
+            if yyyy != str(current_year):
+                continue
+            ci_by_month[sheets_client.MONTHS[int(mm) - 1]] += w["ci_total"]
+        except ValueError:
+            continue
+    months_occurred = [m for m in sheets_client.MONTHS if m in occ_monthly or ci_by_month.get(m, 0) > 0]
+    ci_chart_labels = months_occurred
+    ci_chart_data = [int(ci_by_month.get(m, 0)) for m in months_occurred]
+    if ref_2025:
+        ly_monthly_ci = ref_2025.get("monthly_checkins", {})
+        ci_chart_data_ly = [int(ly_monthly_ci.get(str(sheets_client.MONTHS.index(m) + 1), 0)) for m in months_occurred]
+    else:
+        ci_chart_data_ly = [None] * len(months_occurred)
+
+    channels_chart_labels, channels_chart_datasets = build_channels_chart_data(perf_weeks, current_year)
 
     # -- Build HTML blocks -------------------------------------------------
-    top_channels_html = build_top_channels_html(perf_weeks, current_year)
     monthly_cards_html = build_monthly_cards_html(occ_monthly, revenue, perf_weeks, current_year)
 
     footer_text = f"Bayside House Dashboard · Week {week_number} of 52 · Year-to-date data through {fmt_date_human(week_end_str)}"
@@ -432,18 +555,25 @@ def build(sheet_id: str | None = None, log=print):
 
     tokens = {
         "__OCC_WEEK_PCT__":        occ_week_pct,
-        "__OCC_YTD_PCT__":         occ_ytd_pct,
+        "__OCC_LASTWEEK_PCT__":    occ_lastweek_pct,
         "__ADR_WEEK__":            adr_week,
-        "__ADR_YTD__":             adr_ytd,
+        "__ADR_LASTWEEK__":        adr_lastweek,
         "__CHECKINS_WEEK__":       checkins_week,
-        "__PEOPLE_IN_HOUSE__":     people_in_house,
+        "__CHECKINS_LASTWEEK__":   checkins_lastweek,
+        "__WEEK_BOOKINGS__":       week_bookings,
+        "__LONG_TERMERS__":        long_termers,
+        "__OCC_MONTH_PCT__":       occ_month_pct,
+        "__OCC_LASTMONTH_PCT__":   occ_lastmonth_pct,
+        "__ADR_MONTH__":           adr_month,
+        "__OCC_YTD_PCT__":         occ_ytd_pct,
+        "__OCC_LASTYEAR_PCT__":    occ_lastyear_pct,
+        "__ADR_YTD__":             adr_ytd,
+        "__ADR_LASTYEAR__":        adr_lastyear,
         "__YTD_REVENUE__":         fmt_money_k(ytd_revenue),
         "__YTD_REVENUE_WEEK_LABEL__": ytd_revenue_label,
         "__MTD_REVENUE__":         fmt_money_k(mtd_revenue),
         "__MTD_MONTH_LABEL__":     f"({current_month_abbr})",
         "__MTD_YOY_LABEL__":       mtd_yoy_label,
-        "__YTD_CHECKINS__":        f"{int(ytd_checkins):,}",
-        "__TOP_CHANNELS_HTML__":   top_channels_html,
         "__WEB_ANALYTICS_TITLE__": web_title,
         "__WEB_SESSIONS__":        f"{web_sessions:,}",
         "__WEB_USERS__":           f"{web_users:,}",
@@ -469,10 +599,15 @@ def build(sheet_id: str | None = None, log=print):
         "__FOOTER_TEXT__":         footer_text,
         "__OCC_CHART_LABELS__":    json.dumps(occ_chart_labels),
         "__OCC_CHART_DATA__":     json.dumps(occ_chart_data),
+        "__OCC_CHART_DATA_LY__":  json.dumps(occ_chart_data_ly),
         "__ADR_CHART_LABELS__":   json.dumps(adr_chart_labels),
         "__ADR_CHART_DATA__":    json.dumps(adr_chart_data),
+        "__ADR_CHART_DATA_LY__": json.dumps(adr_chart_data_ly),
         "__CI_CHART_LABELS__":   json.dumps(ci_chart_labels),
         "__CI_CHART_DATA__":     json.dumps(ci_chart_data),
+        "__CI_CHART_DATA_LY__":  json.dumps(ci_chart_data_ly),
+        "__CHANNELS_CHART_LABELS__":   json.dumps(channels_chart_labels),
+        "__CHANNELS_CHART_DATASETS__": json.dumps(channels_chart_datasets),
     }
 
     for token, value in tokens.items():
