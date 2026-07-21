@@ -127,6 +127,7 @@ def fetch_performance(service, sheet_id):
             "adr_mtd":           _fnum(r, sheets_client.ADR_MTD_COL),
             "long_termers":      _fnum(r, sheets_client.LONG_TERMERS_COL),
             "db_total":          _fnum(r, sheets_client.DB_TOTAL_COL),
+            "last_min_bk":       _fnum(r, sheets_client.DB_LASTMIN_COL),
             "sources":           {},
         }
         for i, src in enumerate(sheets_client.DISPLAY_SOURCES):
@@ -427,7 +428,7 @@ def build(sheet_id: str | None = None, log=print):
     adr_lastweek = fmt_money(prev_perf["adr"]) if prev_perf else 'n/a'
     checkins_week = f'{int(latest_perf["ci_total"]):,}'
     checkins_lastweek = f'{int(prev_perf["ci_total"]):,}' if prev_perf else 'n/a'
-    week_bookings = f'{int(latest_perf["db_total"]):,}'
+    week_bookings = f'{int(latest_perf["last_min_bk"]):,}'
     long_termers = f'{int(latest_perf["long_termers"]):,}'
 
     # -- This Month KPIs (vs last month) -------------------------------------
