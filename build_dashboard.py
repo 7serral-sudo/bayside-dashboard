@@ -171,31 +171,56 @@ def fetch_platform_reviews(service, sheet_id):
 
 
 def fetch_website_analytics(service, sheet_id):
+    """Aggregates every week's GA4 row that falls within the most recent
+    week's calendar month, so the dashboard shows monthly totals rather
+    than a single week's (smaller, noisier) numbers. Sessions/pageviews
+    sum cleanly; "Users" becomes a sum-of-weekly-users approximation since
+    GA4 weekly snapshots can't be de-duplicated into a true unique-monthly
+    count after the fact."""
     rows = _values(service, sheet_id, f"{sheets_client.WEB_TAB}!A3:AK2000")
     if not rows:
         return None
-    last = rows[-1]
 
-    channels = {
-        ch: _fnum(last, sheets_client.WEB_CH_START + i)
-        for i, ch in enumerate(sheets_client.WEB_CHANNELS)
-    }
-    countries = []
-    for i in range(sheets_client.TOP_N_COUNTRIES):
-        c = sheets_client.WEB_CTR_START + i * 2
-        name = _fstr(last, c)
-        if name:
-            countries.append((name, _fnum(last, c + 1)))
-    devices = {
-        dv: _fnum(last, sheets_client.WEB_DEV_START + i)
-        for i, dv in enumerate(sheets_client.DEVICES)
-    }
+    last_date = _date_str(rows[-1][0])
+    try:
+        target_month, target_year = last_date.split("/")[1], last_date.split("/")[2]
+    except IndexError:
+        target_month, target_year = None, None
+
+    month_rows = [
+        r for r in rows
+        if _date_str(r[0]).split("/")[1:] == [target_month, target_year]
+    ] if target_month else [rows[-1]]
+
+    sessions = sum(_fnum(r, 1) for r in month_rows)
+    users = sum(_fnum(r, 2) for r in month_rows)
+    pageviews = sum(_fnum(r, 3) for r in month_rows)
+
+    channels = {ch: 0.0 for ch in sheets_client.WEB_CHANNELS}
+    for r in month_rows:
+        for i, ch in enumerate(sheets_client.WEB_CHANNELS):
+            channels[ch] += _fnum(r, sheets_client.WEB_CH_START + i)
+
+    country_totals: dict[str, float] = {}
+    for r in month_rows:
+        for i in range(sheets_client.TOP_N_COUNTRIES):
+            c = sheets_client.WEB_CTR_START + i * 2
+            name = _fstr(r, c)
+            if name:
+                country_totals[name] = country_totals.get(name, 0.0) + _fnum(r, c + 1)
+    countries = sorted(country_totals.items(), key=lambda kv: kv[1], reverse=True)[:sheets_client.TOP_N_COUNTRIES]
+
+    devices = {dv: 0.0 for dv in sheets_client.DEVICES}
+    for r in month_rows:
+        for i, dv in enumerate(sheets_client.DEVICES):
+            devices[dv] += _fnum(r, sheets_client.WEB_DEV_START + i)
 
     return {
-        "week_label": _date_str(last[0]) if last else "",
-        "sessions":   _fnum(last, 1),
-        "users":      _fnum(last, 2),
-        "pageviews":  _fnum(last, 3),
+        "month_label": f"{sheets_client.MONTHS[int(target_month) - 1]} {target_year}" if target_month else last_date,
+        "weeks_included": len(month_rows),
+        "sessions":   sessions,
+        "users":      users,
+        "pageviews":  pageviews,
         "channels":   channels,
         "countries":  countries,
         "devices":    devices,
@@ -252,15 +277,6 @@ def fmt_date_human(date_str: str) -> str:
     try:
         d = datetime.strptime(date_str, "%d/%m/%Y").date()
         return d.strftime("%-d %b %Y") if os.name != "nt" else f"{d.day} {d.strftime('%b')} {d.year}"
-    except ValueError:
-        return date_str
-
-
-def fmt_date_human_short(date_str: str) -> str:
-    """DD/MM/YYYY -> '23 Jun'"""
-    try:
-        d = datetime.strptime(date_str, "%d/%m/%Y").date()
-        return f"{d.day} {d.strftime('%b')}"
     except ValueError:
         return date_str
 
@@ -476,7 +492,7 @@ def build(sheet_id: str | None = None, log=print):
 
     # -- Website analytics ----------------------------------------------------
     if web:
-        web_title = f'Website Analytics (Week of {fmt_date_human_short(web["week_label"])})'
+        web_title = f'Website Analytics ({web["month_label"]})'
         web_sessions = int(web["sessions"])
         web_users = int(web["users"])
         web_pageviews = int(web["pageviews"])
