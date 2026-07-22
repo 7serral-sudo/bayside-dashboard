@@ -554,7 +554,7 @@ def main():
     # Scales: Google /5, Booking.com /10, Hostelworld /10, Expedia /5
     platform_reviews = {
         "google": 4.0,
-        "booking": 7.5,
+        "booking": 7.6,
         "hostelworld": 8.0,
         "expedia": 7.4,
     }
