@@ -170,6 +170,24 @@ def fetch_platform_reviews(service, sheet_id):
     }
 
 
+def fetch_room_type_adr(service, sheet_id):
+    """Returns dict with YTD ADR for private rooms and pods, or None if not found."""
+    try:
+        rows = _values(service, sheet_id, "Room Type ADR!A3:E1000")
+        if not rows:
+            return None
+        # Find the YTD row (should be the last row with data)
+        for r in reversed(rows):
+            if r and len(r) >= 5 and str(r[0]).upper() == "YTD":
+                return {
+                    "private_adr": _fnum(r, 2),
+                    "pods_adr": _fnum(r, 4),
+                }
+        return None
+    except Exception as exc:
+        return None
+
+
 def fetch_website_analytics(service, sheet_id):
     """Aggregates every week's GA4 row that falls within the most recent
     week's calendar month, so the dashboard shows monthly totals rather
@@ -421,6 +439,8 @@ def build(sheet_id: str | None = None, log=print):
     reviews = fetch_platform_reviews(service, sheet_id)
     log("  -> Reading Website Analytics tab ...")
     web = fetch_website_analytics(service, sheet_id)
+    log("  -> Reading Room Type ADR tab ...")
+    room_type_adr = fetch_room_type_adr(service, sheet_id)
 
     if not occ_weeks or not perf_weeks:
         raise RuntimeError("No data found in Occupancy/Performance tabs -- has weekly_report.py run yet?")
@@ -486,6 +506,14 @@ def build(sheet_id: str | None = None, log=print):
     else:
         occ_lastyear_pct = 'n/a'
         adr_lastyear = 'n/a'
+
+    # -- Room Type ADR --------------------------------------------------
+    if room_type_adr:
+        private_adr = fmt_money(room_type_adr["private_adr"])
+        pods_adr = fmt_money(room_type_adr["pods_adr"])
+    else:
+        private_adr = 'n/a'
+        pods_adr = 'n/a'
 
     # -- Reviews ------------------------------------------------------------
     reviews = reviews or {"google": 0, "booking": 0, "hostelworld": 0, "expedia": 0}
@@ -586,6 +614,8 @@ def build(sheet_id: str | None = None, log=print):
         "__OCC_LASTYEAR_PCT__":    occ_lastyear_pct,
         "__ADR_YTD__":             adr_ytd,
         "__ADR_LASTYEAR__":        adr_lastyear,
+        "__PRIVATE_ROOM_ADR_YTD__": private_adr,
+        "__PODS_ADR_YTD__":        pods_adr,
         "__YTD_REVENUE__":         fmt_money_k(ytd_revenue),
         "__YTD_REVENUE_WEEK_LABEL__": ytd_revenue_label,
         "__MTD_REVENUE__":         fmt_money_k(mtd_revenue),
