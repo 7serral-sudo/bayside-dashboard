@@ -176,13 +176,26 @@ def fetch_room_type_adr(service, sheet_id):
         rows = _values(service, sheet_id, "Room Type ADR!A3:E1000")
         if not rows:
             return None
-        # Find the YTD row (should be the last row with data)
-        for r in reversed(rows):
-            if r and len(r) >= 5 and str(r[0]).upper() == "YTD":
+
+        monthly_data = {"months": [], "private_adr": [], "pods_adr": []}
+
+        # Find the YTD row and monthly rows
+        for r in rows:
+            if not r or not r[0]:
+                continue
+            month = str(r[0]).upper()
+            if month == "YTD":
                 return {
                     "private_adr": _fnum(r, 2),
                     "pods_adr": _fnum(r, 4),
+                    "monthly": monthly_data,
                 }
+            # Add monthly data
+            if len(r) >= 5:
+                monthly_data["months"].append(r[0])
+                monthly_data["private_adr"].append(_fnum(r, 2))
+                monthly_data["pods_adr"].append(_fnum(r, 4))
+
         return None
     except Exception as exc:
         return None
@@ -511,9 +524,17 @@ def build(sheet_id: str | None = None, log=print):
     if room_type_adr:
         private_adr = fmt_money(room_type_adr["private_adr"])
         pods_adr = fmt_money(room_type_adr["pods_adr"])
+        # Build chart data for room type ADR trends
+        room_adr_monthly = room_type_adr.get("monthly", {})
+        room_adr_labels = room_adr_monthly.get("months", [])
+        room_adr_private_data = [round(v, 2) for v in room_adr_monthly.get("private_adr", [])]
+        room_adr_pods_data = [round(v, 2) for v in room_adr_monthly.get("pods_adr", [])]
     else:
         private_adr = 'n/a'
         pods_adr = 'n/a'
+        room_adr_labels = []
+        room_adr_private_data = []
+        room_adr_pods_data = []
 
     # -- Reviews ------------------------------------------------------------
     reviews = reviews or {"google": 0, "booking": 0, "hostelworld": 0, "expedia": 0}
@@ -655,6 +676,9 @@ def build(sheet_id: str | None = None, log=print):
         "__CI_CHART_DATA_LY__":  json.dumps(ci_chart_data_ly),
         "__CHANNELS_CHART_LABELS__":   json.dumps(channels_chart_labels),
         "__CHANNELS_CHART_DATASETS__": json.dumps(channels_chart_datasets),
+        "__ROOM_ADR_CHART_LABELS__":   json.dumps(room_adr_labels),
+        "__ROOM_ADR_PRIVATE_DATA__":   json.dumps(room_adr_private_data),
+        "__ROOM_ADR_PODS_DATA__":      json.dumps(room_adr_pods_data),
     }
 
     for token, value in tokens.items():

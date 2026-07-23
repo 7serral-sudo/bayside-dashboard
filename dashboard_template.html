@@ -513,6 +513,13 @@
           <canvas id="channelsChart"></canvas>
         </div>
       </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Room ADR Trends</div>
+        <div class="relative h-64">
+          <canvas id="roomAdrChart"></canvas>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -823,6 +830,46 @@ new Chart(document.getElementById('channelsChart'), {
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => v } }
+    }
+  }
+});
+
+// Room ADR Trends (Private vs Pods by month)
+new Chart(document.getElementById('roomAdrChart'), {
+  type: 'line',
+  data: {
+    labels: __ROOM_ADR_CHART_LABELS__,
+    datasets: [
+      {
+        label: 'Private Room ADR',
+        data: __ROOM_ADR_PRIVATE_DATA__,
+        borderColor: '#5ed29c',
+        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointBackgroundColor: '#5ed29c',
+        spanGaps: false
+      },
+      {
+        label: 'Pod ADR',
+        data: __ROOM_ADR_PODS_DATA__,
+        borderColor: '#fbbf24',
+        backgroundColor: 'rgba(251, 191, 36, 0.05)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointBackgroundColor: '#fbbf24',
+        spanGaps: false
+      }
+    ]
+  },
+  options: {
+    ...chartConfig,
+    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
+    scales: {
+      ...chartConfig.scales,
+      y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => '$' + v.toFixed(0) } }
     }
   }
 });
