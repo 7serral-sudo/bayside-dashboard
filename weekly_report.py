@@ -24,6 +24,41 @@ import sheets_client
 import html_report
 
 # ---------------------------------------------------------------------------
+# Room Type ADR tracking
+# ---------------------------------------------------------------------------
+
+def get_room_type_data_from_sheet(service, sheet_id: str, month: str) -> dict | None:
+    """
+    Read room-type booking/revenue data for a specific month from a tracking sheet.
+    Looks for a sheet named "Room Type Tracking" with columns:
+    Month | Private Bookings | Private Revenue | Pods Bookings | Pods Revenue
+    """
+    try:
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"Room Type Tracking!A:E"
+        ).execute()
+        rows = result.get("values", [])[1:]  # skip header
+        for row in rows:
+            if row and len(row) >= 5 and row[0].lower() == month.lower():
+                return {
+                    month: {
+                        "private": {
+                            "bookings": int(row[1]) if row[1] else 0,
+                            "revenue": float(row[2]) if row[2] else 0.0,
+                        },
+                        "pods": {
+                            "bookings": int(row[3]) if row[3] else 0,
+                            "revenue": float(row[4]) if row[4] else 0.0,
+                        },
+                    }
+                }
+        return None
+    except Exception as exc:
+        log(f"  WARNING: Could not read Room Type Tracking sheet -- {exc}")
+        return None
+
+# ---------------------------------------------------------------------------
 # Source normalisation
 # ---------------------------------------------------------------------------
 
@@ -554,7 +589,7 @@ def main():
     # Scales: Google /5, Booking.com /10, Hostelworld /10, Expedia /5
     platform_reviews = {
         "google": 4.0,
-        "booking": 7.6,
+        "booking": 7.7,
         "hostelworld": 8.0,
         "expedia": 7.4,
     }
@@ -562,9 +597,22 @@ def main():
     sheet_id = os.environ.get("GOOGLE_SHEET_ID")
     if sheet_id:
         log("Writing to Google Sheet ...")
+
+        # Fetch room-type data for this month if available
+        room_type_data = None
+        try:
+            service = sheets_client._build_service()
+            month_name = sheets_client.MONTHS[week_end.month - 1]
+            room_type_month_data = get_room_type_data_from_sheet(service, sheet_id, month_name)
+            if room_type_month_data:
+                room_type_data = room_type_month_data
+                log(f"  -> Found room type data for {month_name}")
+        except Exception as exc:
+            log(f"  -> Room type data not available: {exc}")
+
         sheets_client.write_report(stats, week_end, monthly_revenues, sheet_id,
                                    ga4_data=ga4_data, monthly_occs=monthly_occs,
-                                   platform_reviews=platform_reviews)
+                                   platform_reviews=platform_reviews, room_type_data=room_type_data)
     else:
         log("GOOGLE_SHEET_ID not set -- skipping sheet write.")
 
