@@ -475,13 +475,13 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="kpi-card">
         <div class="kpi-label">Private Room ADR YTD</div>
-        <div class="kpi-value">$0.00</div>
+        <div class="kpi-value">$75.76</div>
         <div class="kpi-sub" style="color: #6b7280;">6 private rooms</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Pod ADR YTD</div>
-        <div class="kpi-value">$175.78</div>
+        <div class="kpi-value">$34.47</div>
         <div class="kpi-sub" style="color: #6b7280;">78 pods</div>
       </div>
     </div>
@@ -896,11 +896,11 @@ new Chart(document.getElementById('channelsChart'), {
 new Chart(document.getElementById('roomAdrChart'), {
   type: 'line',
   data: {
-    labels: ["Jul"],
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"],
     datasets: [
       {
         label: 'Private Room ADR',
-        data: [0.0],
+        data: [79.28, 90.4, 90.17, 68.0, 69.71, 68.18, 69.17],
         borderColor: '#5ed29c',
         backgroundColor: 'rgba(94, 210, 156, 0.1)',
         fill: true,
@@ -911,7 +911,7 @@ new Chart(document.getElementById('roomAdrChart'), {
       },
       {
         label: 'Pod ADR',
-        data: [175.78],
+        data: [40.27, 39.25, 46.61, 31.39, 29.15, 27.84, 28.07],
         borderColor: '#fbbf24',
         backgroundColor: 'rgba(251, 191, 36, 0.05)',
         fill: true,
