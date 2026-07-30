@@ -481,7 +481,7 @@ def build(sheet_id: str | None = None, log=print):
     total_week_bookings = f'{int(latest_perf["db_total"]):,}'
     long_termers = f'{int(latest_perf["long_termers"]):,}'
 
-    # -- This Month KPIs (vs last month) -------------------------------------
+    # -- This Month KPIs (vs last month and vs last year) -------------------
     current_month_abbr = sheets_client.MONTHS[week_end_date.month - 1]
     occ_month_val = occ_monthly.get(current_month_abbr)
     occ_month_pct = f'{occ_month_val:.1f}%' if occ_month_val is not None else 'n/a'
@@ -490,6 +490,23 @@ def build(sheet_id: str | None = None, log=print):
     prev_month_occ = occ_monthly.get(prev_month_abbr) if prev_month_abbr else None
     occ_lastmonth_pct = f'{prev_month_occ:.1f}%' if prev_month_occ is not None else 'n/a'
     adr_month = fmt_money(latest_perf["adr_mtd"])
+
+    # Compare with same month last year (from 2025 reference data)
+    occ_month_ly = 'n/a'
+    adr_month_ly = 'n/a'
+    if ref_2025:
+        ly_month_start = date(current_year - 1, week_end_date.month, 1)
+        if week_end_date.month == 12:
+            ly_month_end = date(current_year - 1, 12, 31)
+        else:
+            ly_month_end = date(current_year, week_end_date.month + 1, 1) - timedelta(days=1)
+        ly_booked, ly_rev = ly_range_sums(ref_2025, ly_month_start, ly_month_end)
+        ly_days = (ly_month_end - ly_month_start).days + 1
+        if ly_days and ly_booked:
+            ly_occ_month = ly_booked / (LY_N_BEDS * ly_days) * 100
+            ly_adr_month = ly_rev / ly_booked
+            occ_month_ly = f'{ly_occ_month:.1f}%'
+            adr_month_ly = fmt_money(ly_adr_month)
 
     # -- Revenue ----------------------------------------------------------
     ytd_revenue = sum(v["cy"] for v in revenue.values())
@@ -632,7 +649,9 @@ def build(sheet_id: str | None = None, log=print):
         "__LONG_TERMERS__":        long_termers,
         "__OCC_MONTH_PCT__":       occ_month_pct,
         "__OCC_LASTMONTH_PCT__":   occ_lastmonth_pct,
+        "__OCC_MONTH_LY_PCT__":    occ_month_ly,
         "__ADR_MONTH__":           adr_month,
+        "__ADR_MONTH_LY__":        adr_month_ly,
         "__OCC_YTD_PCT__":         occ_ytd_pct,
         "__OCC_LASTYEAR_PCT__":    occ_lastyear_pct,
         "__ADR_YTD__":             adr_ytd,
