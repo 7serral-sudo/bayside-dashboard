@@ -521,7 +521,20 @@ def build(sheet_id: str | None = None, log=print):
         mtd_yoy_label = f'vs {current_month_abbr} {current_year - 1}: n/a'
 
     week_number = len(occ_weeks)
-    ytd_revenue_label = f"Through week {week_number}"
+
+    # YTD Revenue YoY comparison
+    ytd_revenue_label = "n/a"
+    if ref_2025:
+        ly_ytd_end = date(current_year - 1, week_end_date.month, week_end_date.day)
+        ly_booked, ly_rev = ly_range_sums(ref_2025, date(current_year - 1, 1, 1), ly_ytd_end)
+        if ly_rev:
+            yoy_revenue_pct = (ytd_revenue - ly_rev) / ly_rev * 100
+            yoy_sign = "+" if yoy_revenue_pct >= 0 else ""
+            ytd_revenue_label = f"vs {current_year - 1}: {fmt_money_k(ly_rev)} ({yoy_sign}{yoy_revenue_pct:.0f}%)"
+        else:
+            ytd_revenue_label = f"Through week {week_number}"
+    else:
+        ytd_revenue_label = f"Through week {week_number}"
 
     # -- This Year KPIs (vs last year, via the 2025 reference cache) --------
     occ_ytd_pct  = f'{latest_occ["ytd_occ"]:.1f}%'
