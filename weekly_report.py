@@ -24,38 +24,70 @@ import sheets_client
 import html_report
 
 # ---------------------------------------------------------------------------
-# Room Type ADR tracking
+# Room Type ADR tracking (extracted from Cloudbeds API)
 # ---------------------------------------------------------------------------
 
-def get_room_type_data_from_sheet(service, sheet_id: str, month: str) -> dict | None:
+PRIVATE_ROOM_TYPES = {"Deluxe Queen", "Queen with Ensuite"}
+
+def categorize_room(room_name: str) -> str:
+    """Categorize room as 'private' or 'pods' based on room name."""
+    return "private" if room_name in PRIVATE_ROOM_TYPES else "pods"
+
+def extract_room_type_adr(client: CloudbedsClient, month_start: date, month_end: date) -> dict | None:
     """
-    Read room-type booking/revenue data for a specific month from a tracking sheet.
-    Looks for a sheet named "Room Type Tracking" with columns:
-    Month | Private Bookings | Private Revenue | Pods Bookings | Pods Revenue
+    Extract room-type ADR data for a specific month from Cloudbeds.
+    Returns: {"private": {"bookings": N, "revenue": X}, "pods": {...}}
     """
     try:
-        result = service.spreadsheets().values().get(
-            spreadsheetId=sheet_id,
-            range=f"Room Type Tracking!A:E"
-        ).execute()
-        rows = result.get("values", [])[1:]  # skip header
-        for row in rows:
-            if row and len(row) >= 5 and row[0].lower() == month.lower():
-                return {
-                    month: {
-                        "private": {
-                            "bookings": int(row[1]) if row[1] else 0,
-                            "revenue": float(row[2]) if row[2] else 0.0,
-                        },
-                        "pods": {
-                            "bookings": int(row[3]) if row[3] else 0,
-                            "revenue": float(row[4]) if row[4] else 0.0,
-                        },
-                    }
-                }
-        return None
+        log(f"  -> Extracting room-type data from Cloudbeds ({month_start} to {month_end})...")
+
+        # Fetch all reservations (check-ins) for the month
+        arrivals = client.get_arrivals(month_start, month_end)
+
+        # Filter by confirmed status and categorize by room type
+        room_type_stats = {"private": {"bookings": 0, "beds": 0}, "pods": {"bookings": 0, "beds": 0}}
+
+        for r in arrivals:
+            status = str(r.get("status", "")).lower()
+            if status in {"cancelled", "canceled", "no_show"}:
+                continue
+
+            room_name = r.get("roomName", "")
+            room_type = categorize_room(room_name)
+
+            try:
+                ci = date.fromisoformat(r["startDate"])
+                co = date.fromisoformat(r["endDate"])
+                nights = max((co - ci).days, 0)
+                adults = int(r.get("adults", 1) or 1)
+                beds_booked = nights * adults
+
+                room_type_stats[room_type]["bookings"] += 1
+                room_type_stats[room_type]["beds"] += beds_booked
+            except (KeyError, ValueError):
+                continue
+
+        # Fetch daily revenue data to distribute by room type
+        rooms_sold = client.get_rooms_sold(month_start, month_end)
+        total_revenue = sum(r.get("revenue", 0.0) for r in rooms_sold)
+        total_beds = sum(r.get("accommodations_booked", 0) for r in rooms_sold)
+
+        # Distribute revenue proportionally by bed-nights booked
+        if total_beds > 0:
+            for room_type in room_type_stats:
+                bed_pct = room_type_stats[room_type]["beds"] / total_beds
+                room_type_stats[room_type]["revenue"] = round(total_revenue * bed_pct, 2)
+        else:
+            for room_type in room_type_stats:
+                room_type_stats[room_type]["revenue"] = 0.0
+
+        log(f"     Private: {room_type_stats['private']['bookings']} bookings, ${room_type_stats['private']['revenue']:,.2f}")
+        log(f"     Pods: {room_type_stats['pods']['bookings']} bookings, ${room_type_stats['pods']['revenue']:,.2f}")
+
+        return room_type_stats
+
     except Exception as exc:
-        log(f"  WARNING: Could not read Room Type Tracking sheet -- {exc}")
+        log(f"  WARNING: Room-type extraction failed -- {exc}")
         return None
 
 # ---------------------------------------------------------------------------
@@ -598,21 +630,32 @@ def main():
     if sheet_id:
         log("Writing to Google Sheet ...")
 
-        # Fetch room-type data for this month if available
-        room_type_data = None
+        # Extract room-type data from Cloudbeds for this month
+        room_type_adr_data = None
         try:
-            service = sheets_client._build_service()
-            month_name = sheets_client.MONTHS[week_end.month - 1]
-            room_type_month_data = get_room_type_data_from_sheet(service, sheet_id, month_name)
-            if room_type_month_data:
-                room_type_data = room_type_month_data
-                log(f"  -> Found room type data for {month_name}")
+            room_type_stats = extract_room_type_adr(client, month_start, week_end)
+            if room_type_stats:
+                month_key = f"{week_end.year}-{week_end.month:02d}"
+                room_type_adr_data = {
+                    month_key: {
+                        "private": {
+                            "bookings": room_type_stats["private"]["bookings"],
+                            "revenue": room_type_stats["private"]["revenue"],
+                        },
+                        "pods": {
+                            "bookings": room_type_stats["pods"]["bookings"],
+                            "revenue": room_type_stats["pods"]["revenue"],
+                        },
+                    }
+                }
+                month_name = sheets_client.MONTHS[week_end.month - 1]
+                log(f"  -> Room-type data extracted for {month_name}")
         except Exception as exc:
-            log(f"  -> Room type data not available: {exc}")
+            log(f"  WARNING: Room-type extraction error -- {exc}")
 
         sheets_client.write_report(stats, week_end, monthly_revenues, sheet_id,
                                    ga4_data=ga4_data, monthly_occs=monthly_occs,
-                                   platform_reviews=platform_reviews, room_type_data=room_type_data)
+                                   platform_reviews=platform_reviews, room_type_data=room_type_adr_data)
     else:
         log("GOOGLE_SHEET_ID not set -- skipping sheet write.")
 
