@@ -478,6 +478,7 @@ def build(sheet_id: str | None = None, log=print):
     checkins_week = f'{int(latest_perf["ci_total"]):,}'
     checkins_lastweek = f'{int(prev_perf["ci_total"]):,}' if prev_perf else 'n/a'
     week_bookings = f'{int(latest_perf["last_min_bk"]):,}'
+    total_week_bookings = f'{int(latest_perf["db_total"]):,}'
     long_termers = f'{int(latest_perf["long_termers"]):,}'
 
     # -- This Month KPIs (vs last month) -------------------------------------
@@ -627,6 +628,7 @@ def build(sheet_id: str | None = None, log=print):
         "__CHECKINS_WEEK__":       checkins_week,
         "__CHECKINS_LASTWEEK__":   checkins_lastweek,
         "__WEEK_BOOKINGS__":       week_bookings,
+        "__TOTAL_WEEK_BOOKINGS__": total_week_bookings,
         "__LONG_TERMERS__":        long_termers,
         "__OCC_MONTH_PCT__":       occ_month_pct,
         "__OCC_LASTMONTH_PCT__":   occ_lastmonth_pct,
