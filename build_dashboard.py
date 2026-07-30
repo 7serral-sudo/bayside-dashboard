@@ -403,7 +403,7 @@ def build_channels_chart_data(perf_weeks, current_year, n_months=6):
     return months_with_data, datasets
 
 
-def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list, current_year: int):
+def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list, current_year: int, ref_2025: dict = None):
     # Check-ins per calendar month, derived from each week's date.
     ci_by_month = {m: 0 for m in sheets_client.MONTHS}
     for w in perf_weeks:
@@ -423,11 +423,36 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
         occ_pct = occ_monthly[m]
         ci = int(ci_by_month.get(m, 0))
         rev = revenue.get(m, {}).get("cy", 0)
+
+        # YoY comparisons
+        yoy_text = ""
+        if ref_2025:
+            month_num = sheets_client.MONTHS.index(m) + 1
+            ly_monthly_ci = ref_2025.get("monthly_checkins", {})
+            ly_ci = int(ly_monthly_ci.get(str(month_num), 0))
+            ly_rev = revenue.get(m, {}).get("py", 0)
+
+            if ly_ci:
+                ci_pct = ((ci - ly_ci) / ly_ci * 100)
+                ci_sign = "+" if ci_pct >= 0 else ""
+                ci_yoy = f" ({ci_sign}{ci_pct:.0f}%)"
+            else:
+                ci_yoy = " (n/a)"
+
+            if ly_rev:
+                rev_pct = ((rev - ly_rev) / ly_rev * 100)
+                rev_sign = "+" if rev_pct >= 0 else ""
+                rev_yoy = f" ({rev_sign}{rev_pct:.0f}%)"
+            else:
+                rev_yoy = " (n/a)"
+
+            yoy_text = f'<div class="monthly-sub" style="font-size: 11px; color: #9ca3af;">vs {current_year - 1}: {ci} CI{ci_yoy} | {fmt_money_k(rev)}{rev_yoy}</div>'
+
         cards.append(f'''      <div class="monthly-card">
           <div class="monthly-month">{m}</div>
           <div class="monthly-value">{occ_pct:.2f}%</div>
-          <div class="monthly-sub">{ci} check-ins</div>
-          <div class="monthly-sub">{fmt_money_k(rev)}</div>
+          <div class="monthly-sub">{ci} check-ins | {fmt_money_k(rev)}</div>
+          {yoy_text}
         </div>''')
     if not cards:
         cards.append('      <div style="color: #6b7280; font-size: 13px;">No data yet</div>')
@@ -642,7 +667,7 @@ def build(sheet_id: str | None = None, log=print):
     channels_chart_labels, channels_chart_datasets = build_channels_chart_data(perf_weeks, current_year)
 
     # -- Build HTML blocks -------------------------------------------------
-    monthly_cards_html = build_monthly_cards_html(occ_monthly, revenue, perf_weeks, current_year)
+    monthly_cards_html = build_monthly_cards_html(occ_monthly, revenue, perf_weeks, current_year, ref_2025)
 
     footer_text = f"Bayside House Dashboard · Week {week_number} of 52 · Year-to-date data through {fmt_date_human(week_end_str)}"
 
