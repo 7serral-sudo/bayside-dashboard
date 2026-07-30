@@ -712,30 +712,23 @@ const twoToneLegend = {
 
 // Occupancy Chart (this year vs last year)
 new Chart(document.getElementById('occChart'), {
-  type: 'line',
+  type: 'bar',
   data: {
     labels: __OCC_CHART_LABELS__,
     datasets: [
       {
         label: '2026',
         data: __OCC_CHART_DATA__,
-        borderColor: '#5ed29c',
-        backgroundColor: 'rgba(94, 210, 156, 0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        spanGaps: false
+        backgroundColor: '#5ed29c',
+        borderRadius: 4,
+        borderWidth: 0
       },
       {
         label: '2025',
         data: __OCC_CHART_DATA_LY__,
-        borderColor: '#6b7280',
-        backgroundColor: 'transparent',
-        borderDash: [4, 4],
-        fill: false,
-        tension: 0.3,
-        pointRadius: 0,
-        spanGaps: false
+        backgroundColor: '#4b5563',
+        borderRadius: 4,
+        borderWidth: 0
       }
     ]
   },
@@ -751,30 +744,23 @@ new Chart(document.getElementById('occChart'), {
 
 // ADR Chart (this year vs last year)
 new Chart(document.getElementById('adrChart'), {
-  type: 'line',
+  type: 'bar',
   data: {
     labels: __ADR_CHART_LABELS__,
     datasets: [
       {
         label: '2026',
         data: __ADR_CHART_DATA__,
-        borderColor: '#5ed29c',
-        backgroundColor: 'rgba(94, 210, 156, 0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        spanGaps: false
+        backgroundColor: '#5ed29c',
+        borderRadius: 4,
+        borderWidth: 0
       },
       {
         label: '2025',
         data: __ADR_CHART_DATA_LY__,
-        borderColor: '#6b7280',
-        backgroundColor: 'transparent',
-        borderDash: [4, 4],
-        fill: false,
-        tension: 0.3,
-        pointRadius: 0,
-        spanGaps: false
+        backgroundColor: '#4b5563',
+        borderRadius: 4,
+        borderWidth: 0
       }
     ]
   },
