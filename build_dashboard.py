@@ -15,6 +15,31 @@ load_dotenv()
 
 import sheets_client
 
+def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
+    """Return a coloured HTML string for a KPI sub-label comparison."""
+    if current is None or prev is None:
+        return f'{label}: n/a'
+    green, red = '#22c55e', '#ef4444'
+    if current > prev:
+        color = green if higher_is_better else red
+        arrow = '↑'
+    elif current < prev:
+        color = red if higher_is_better else green
+        arrow = '↓'
+    else:
+        return f'{label}: {fmt_fn(prev)}'
+    return f'{label}: <span style="color:{color}">{arrow} {fmt_fn(prev)}</span>'
+
+def _color_yoy(text):
+    """Wrap the (+X%) or (-X%) part of a YoY label in a coloured span."""
+    if '(+' in text:
+        idx = text.index('(+')
+        return text[:idx] + f'<span style="color:#22c55e">{text[idx:]}</span>'
+    if '(-' in text:
+        idx = text.index('(-')
+        return text[:idx] + f'<span style="color:#ef4444">{text[idx:]}</span>'
+    return text
+
 SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_PATH  = os.path.join(SCRIPT_DIR, "dashboard_template.html")
 OUTPUT_PATH    = os.path.join(SCRIPT_DIR, "Bayside_Dashboard.html")
@@ -497,11 +522,17 @@ def build(sheet_id: str | None = None, log=print):
     prev_perf = perf_weeks[-2] if len(perf_weeks) > 1 else None
 
     occ_week_pct = f'{latest_occ["week_occ"]:.1f}%'
-    occ_lastweek_pct = f'{prev_occ["week_occ"]:.1f}%' if prev_occ else 'n/a'
+    occ_lastweek_pct = _cmp_html('vs last week', latest_occ["week_occ"],
+                                  prev_occ["week_occ"] if prev_occ else None,
+                                  fmt_fn=lambda v: f'{v:.1f}%')
     adr_week     = fmt_money(latest_perf["adr"])
-    adr_lastweek = fmt_money(prev_perf["adr"]) if prev_perf else 'n/a'
+    adr_lastweek = _cmp_html('vs last week', latest_perf["adr"],
+                              prev_perf["adr"] if prev_perf else None,
+                              fmt_fn=fmt_money)
     checkins_week = f'{int(latest_perf["ci_total"]):,}'
-    checkins_lastweek = f'{int(prev_perf["ci_total"]):,}' if prev_perf else 'n/a'
+    checkins_lastweek = _cmp_html('vs last week', latest_perf["ci_total"],
+                                   prev_perf["ci_total"] if prev_perf else None,
+                                   fmt_fn=lambda v: f'{int(v):,}')
     week_bookings = f'{int(latest_perf["last_min_bk"]):,}'
     total_week_bookings = f'{int(latest_perf["db_total"]):,}'
     long_termers = f'{int(latest_perf["long_termers"]):,}'
@@ -530,8 +561,10 @@ def build(sheet_id: str | None = None, log=print):
         if ly_days and ly_booked:
             ly_occ_month = ly_booked / (LY_N_BEDS * ly_days) * 100
             ly_adr_month = ly_rev / ly_booked
-            occ_month_ly = f'{ly_occ_month:.1f}%'
-            adr_month_ly = fmt_money(ly_adr_month)
+            occ_month_ly = _cmp_html('vs last year', occ_month_val, ly_occ_month,
+                                      fmt_fn=lambda v: f'{v:.1f}%')
+            adr_month_ly = _cmp_html('vs last year', latest_perf["adr_mtd"], ly_adr_month,
+                                      fmt_fn=fmt_money)
 
     # -- Revenue ----------------------------------------------------------
     ytd_revenue = sum(v["cy"] for v in revenue.values())
@@ -541,7 +574,7 @@ def build(sheet_id: str | None = None, log=print):
     if mtd_ly:
         yoy_pct = (mtd_revenue - mtd_ly) / mtd_ly * 100
         yoy_sign = "+" if yoy_pct >= 0 else ""
-        mtd_yoy_label = f'vs {current_month_abbr} {current_year - 1}: {fmt_money_k(mtd_ly)} ({yoy_sign}{yoy_pct:.0f}%)'
+        mtd_yoy_label = _color_yoy(f'vs {current_month_abbr} {current_year - 1}: {fmt_money_k(mtd_ly)} ({yoy_sign}{yoy_pct:.0f}%)')
     else:
         mtd_yoy_label = f'vs {current_month_abbr} {current_year - 1}: n/a'
 
@@ -555,7 +588,7 @@ def build(sheet_id: str | None = None, log=print):
         if ly_rev:
             yoy_revenue_pct = (ytd_revenue - ly_rev) / ly_rev * 100
             yoy_sign = "+" if yoy_revenue_pct >= 0 else ""
-            ytd_revenue_label = f"vs {current_year - 1}: {fmt_money_k(ly_rev)} ({yoy_sign}{yoy_revenue_pct:.0f}%)"
+            ytd_revenue_label = _color_yoy(f"vs {current_year - 1}: {fmt_money_k(ly_rev)} ({yoy_sign}{yoy_revenue_pct:.0f}%)")
         else:
             ytd_revenue_label = f"Through week {week_number}"
     else:
@@ -570,8 +603,10 @@ def build(sheet_id: str | None = None, log=print):
         ly_days = (ly_ytd_end - date(current_year - 1, 1, 1)).days + 1
         ly_occ_ytd = ly_booked / (LY_N_BEDS * ly_days) * 100 if ly_days else 0
         ly_adr_ytd = (ly_rev / ly_booked) if ly_booked else 0
-        occ_lastyear_pct = f'{ly_occ_ytd:.1f}%'
-        adr_lastyear = fmt_money(ly_adr_ytd)
+        occ_lastyear_pct = _cmp_html('vs last year', latest_occ["ytd_occ"], ly_occ_ytd,
+                                      fmt_fn=lambda v: f'{v:.1f}%')
+        adr_lastyear = _cmp_html('vs last year', latest_perf["adr_ytd"], ly_adr_ytd,
+                                  fmt_fn=fmt_money)
     else:
         occ_lastyear_pct = 'n/a'
         adr_lastyear = 'n/a'
