@@ -729,7 +729,10 @@ new Chart(document.getElementById('occChart'), {
         backgroundColor: 'rgba(255,255,255,0.08)',
         fill: true,
         tension: 0.3,
-        pointRadius: 0,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#FFFFFF',
+        pointBorderColor: '#FFFFFF',
         spanGaps: false
       },
       {
@@ -740,14 +743,27 @@ new Chart(document.getElementById('occChart'), {
         borderDash: [4, 4],
         fill: false,
         tension: 0.3,
-        pointRadius: 0,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#555',
+        pointBorderColor: '#555',
         spanGaps: false
       }
     ]
   },
   options: {
     ...chartConfig,
-    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      ...chartConfig.plugins,
+      legend: twoToneLegend,
+      tooltip: {
+        ...chartConfig.plugins.tooltip,
+        mode: 'index',
+        intersect: false,
+        callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}%` }
+      }
+    },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, min: 0, max: 120, ticks: { ...chartConfig.scales.y.ticks, callback: v => v + '%' } }
@@ -768,7 +784,10 @@ new Chart(document.getElementById('adrChart'), {
         backgroundColor: 'rgba(255,255,255,0.08)',
         fill: true,
         tension: 0.3,
-        pointRadius: 0,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#FFFFFF',
+        pointBorderColor: '#FFFFFF',
         spanGaps: false
       },
       {
@@ -779,14 +798,27 @@ new Chart(document.getElementById('adrChart'), {
         borderDash: [4, 4],
         fill: false,
         tension: 0.3,
-        pointRadius: 0,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#555',
+        pointBorderColor: '#555',
         spanGaps: false
       }
     ]
   },
   options: {
     ...chartConfig,
-    plugins: { ...chartConfig.plugins, legend: twoToneLegend },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      ...chartConfig.plugins,
+      legend: twoToneLegend,
+      tooltip: {
+        ...chartConfig.plugins.tooltip,
+        mode: 'index',
+        intersect: false,
+        callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y?.toFixed(2)}` }
+      }
+    },
     scales: {
       ...chartConfig.scales,
       y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => '$' + v } }
