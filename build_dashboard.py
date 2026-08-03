@@ -460,18 +460,20 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
             if ly_ci:
                 ci_pct = ((ci - ly_ci) / ly_ci * 100)
                 ci_sign = "+" if ci_pct >= 0 else ""
-                ci_yoy = f" ({ci_sign}{ci_pct:.0f}%)"
+                ci_color = '#22c55e' if ci_pct >= 0 else '#ef4444'
+                ci_yoy = f' <span style="color:{ci_color}">({ci_sign}{ci_pct:.0f}%)</span>'
             else:
                 ci_yoy = " (n/a)"
 
             if ly_rev:
                 rev_pct = ((rev - ly_rev) / ly_rev * 100)
                 rev_sign = "+" if rev_pct >= 0 else ""
-                rev_yoy = f" ({rev_sign}{rev_pct:.0f}%)"
+                rev_color = '#22c55e' if rev_pct >= 0 else '#ef4444'
+                rev_yoy = f' <span style="color:{rev_color}">({rev_sign}{rev_pct:.0f}%)</span>'
             else:
                 rev_yoy = " (n/a)"
 
-            yoy_text = f'<div class="monthly-sub" style="font-size: 11px; color: #9ca3af;">vs {current_year - 1}: {ci} CI{ci_yoy} | {fmt_money_k(rev)}{rev_yoy}</div>'
+            yoy_text = f'<div class="monthly-sub" style="font-size: 11px;">vs {current_year - 1}: {ci} CI{ci_yoy} | {fmt_money_k(rev)}{rev_yoy}</div>'
 
         cards.append(f'''      <div class="monthly-card">
           <div class="monthly-month">{m}</div>
