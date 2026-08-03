@@ -353,39 +353,37 @@ def fmt_date_human(date_str: str) -> str:
 
 def build_web_channels_html(channels: dict):
     if not channels or not any(channels.values()):
-        return '          <div style="color: #6b7280; font-size: 13px;">No data yet</div>'
+        return '          <div>No data yet</div>'
     rows = []
     for ch, sessions in channels.items():
         rows.append(
-            f'          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">{ch}:</span> '
-            f'<span style="color: #5ed29c; font-weight: 700;">{int(sessions)}</span></div>'
+            f'          <div>{ch}: <strong style="color:#22c55e">{int(sessions)}</strong></div>'
         )
     return "\n".join(rows)
 
 
 def build_web_countries_html(countries: list):
     if not countries:
-        return '          <div style="color: #6b7280; font-size: 13px;">No data yet</div>'
+        return '          <div>No data yet</div>'
     rows = []
     for i, (name, sessions) in enumerate(countries):
         rows.append(
-            f'          <div style="margin-bottom: 12px; display: flex; justify-content: space-between;">'
-            f'<span style="color: #94a3b8;">{i+1}. {name}</span> '
-            f'<span style="color: #5ed29c; font-weight: 700;">{int(sessions)}</span></div>'
+            f'          <div style="display:flex;justify-content:space-between">'
+            f'<span>{i+1}. {name}</span> '
+            f'<strong style="color:#22c55e">{int(sessions)}</strong></div>'
         )
     return "\n".join(rows)
 
 
 def build_web_device_html(devices: dict):
     if not devices or not any(devices.values()):
-        return '          <div style="color: #6b7280; font-size: 13px;">No data yet</div>'
+        return '          <div>No data yet</div>'
     total = sum(devices.values()) or 1
     rows = []
     for dv, count in devices.items():
         pct = count / total * 100
         rows.append(
-            f'          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">{dv}:</span> '
-            f'<span style="color: #5ed29c; font-weight: 700;">{int(count)} ({pct:.0f}%)</span></div>'
+            f'          <div>{dv}: <strong style="color:#22c55e">{int(count)} ({pct:.0f}%)</strong></div>'
         )
     return "\n".join(rows)
 

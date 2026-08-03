@@ -341,7 +341,8 @@ section.block + section.block { border-top: 1px solid var(--line); }
 .monthly-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
 
 .frag-list { font-size: var(--t-sm); color: var(--n6); }
-.frag-list > div { padding-block: 2px; }
+.frag-list > div { padding-block: 6px; }
+.frag-list > div + div { border-top: 1px solid var(--line-inner); }
 
 /* ---------- reviews ---------- */
 .review-card {
@@ -667,24 +668,24 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
     </div>
     <div class="chart-grid" style="margin-top: var(--s4); grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
       <div class="chart-card"><h3>Sessions by channel</h3><div class="frag-list">
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Direct:</span> <span style="color: #5ed29c; font-weight: 700;">683</span></div>
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Organic Search:</span> <span style="color: #5ed29c; font-weight: 700;">728</span></div>
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Organic Social:</span> <span style="color: #5ed29c; font-weight: 700;">29</span></div>
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Referral:</span> <span style="color: #5ed29c; font-weight: 700;">15</span></div>
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Paid Other:</span> <span style="color: #5ed29c; font-weight: 700;">23</span></div>
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Unassigned:</span> <span style="color: #5ed29c; font-weight: 700;">65</span></div>
+          <div>Direct: <strong style="color:#22c55e">683</strong></div>
+          <div>Organic Search: <strong style="color:#22c55e">728</strong></div>
+          <div>Organic Social: <strong style="color:#22c55e">29</strong></div>
+          <div>Referral: <strong style="color:#22c55e">15</strong></div>
+          <div>Paid Other: <strong style="color:#22c55e">23</strong></div>
+          <div>Unassigned: <strong style="color:#22c55e">65</strong></div>
       </div></div>
       <div class="chart-card"><h3>Top countries</h3><div class="frag-list">
-          <div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color: #94a3b8;">1. Australia</span> <span style="color: #5ed29c; font-weight: 700;">917</span></div>
-          <div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color: #94a3b8;">2. Singapore</span> <span style="color: #5ed29c; font-weight: 700;">183</span></div>
-          <div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color: #94a3b8;">3. United States</span> <span style="color: #5ed29c; font-weight: 700;">90</span></div>
-          <div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color: #94a3b8;">4. Japan</span> <span style="color: #5ed29c; font-weight: 700;">23</span></div>
-          <div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color: #94a3b8;">5. United Kingdom</span> <span style="color: #5ed29c; font-weight: 700;">12</span></div>
+          <div style="display:flex;justify-content:space-between"><span>1. Australia</span> <strong style="color:#22c55e">917</strong></div>
+          <div style="display:flex;justify-content:space-between"><span>2. Singapore</span> <strong style="color:#22c55e">183</strong></div>
+          <div style="display:flex;justify-content:space-between"><span>3. United States</span> <strong style="color:#22c55e">90</strong></div>
+          <div style="display:flex;justify-content:space-between"><span>4. Japan</span> <strong style="color:#22c55e">23</strong></div>
+          <div style="display:flex;justify-content:space-between"><span>5. United Kingdom</span> <strong style="color:#22c55e">12</strong></div>
       </div></div>
       <div class="chart-card"><h3>Devices</h3><div class="frag-list">
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Mobile:</span> <span style="color: #5ed29c; font-weight: 700;">678 (43%)</span></div>
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Desktop:</span> <span style="color: #5ed29c; font-weight: 700;">884 (56%)</span></div>
-          <div style="margin-bottom: 15px;"><span style="color: #94a3b8;">Tablet:</span> <span style="color: #5ed29c; font-weight: 700;">15 (1%)</span></div>
+          <div>Mobile: <strong style="color:#22c55e">678 (43%)</strong></div>
+          <div>Desktop: <strong style="color:#22c55e">884 (56%)</strong></div>
+          <div>Tablet: <strong style="color:#22c55e">15 (1%)</strong></div>
       </div></div>
     </div>
   </section>
