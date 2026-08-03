@@ -227,6 +227,10 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
    LEDE — the editorial summary
    ============================================================ */
 .lede { padding: var(--s6) 0 var(--s7); }
+.page-title {
+  font-size: var(--t-xl); font-weight: 700; letter-spacing: -0.02em;
+  color: var(--n8); margin-bottom: var(--s6);
+}
 
 /* hero stat strip */
 .hero-strip {
@@ -440,7 +444,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
 
   <!-- ═══════════ LEDE ═══════════ -->
   <div class="wrap lede">
-    <h1 class="visually-hidden">Bayside House performance dashboard</h1>
+    <h1 class="page-title">Bayside House — Dashboard</h1>
     <div class="hero-strip" role="group" aria-label="Headline year-to-date figures">
       <div class="hero-stat" data-trend="__TREND_REV_YTD__">
         <div class="lbl">Revenue YTD</div>
