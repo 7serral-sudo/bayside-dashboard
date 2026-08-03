@@ -30,6 +30,16 @@ def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
         return f'{label}: {fmt_fn(prev)}'
     return f'{label}: <span style="color:{color}">{arrow} {fmt_fn(prev)}</span>'
 
+def _trend(current, prev):
+    """Return 'up', 'down', or 'neutral' for use as a data-trend attribute."""
+    if current is None or prev is None:
+        return 'neutral'
+    if current > prev:
+        return 'up'
+    if current < prev:
+        return 'down'
+    return 'neutral'
+
 def _color_yoy(text):
     """Wrap the (+X%) or (-X%) part of a YoY label in a coloured span."""
     if '(+' in text:
@@ -713,6 +723,15 @@ def build(sheet_id: str | None = None, log=print):
         html = f.read()
 
     tokens = {
+        "__TREND_OCC_WEEK__":      _trend(latest_occ["week_occ"], prev_occ["week_occ"] if prev_occ else None),
+        "__TREND_ADR_WEEK__":      _trend(latest_perf["adr"], prev_perf["adr"] if prev_perf else None),
+        "__TREND_CI_WEEK__":       _trend(latest_perf["ci_total"], prev_perf["ci_total"] if prev_perf else None),
+        "__TREND_OCC_MONTH__":     _trend(occ_month_val, ly_occ_month if ref_2025 and ly_booked else None),
+        "__TREND_ADR_MONTH__":     _trend(latest_perf["adr_mtd"], ly_adr_month if ref_2025 and ly_booked else None),
+        "__TREND_REV_MONTH__":     _trend(mtd_revenue, mtd_ly if mtd_ly else None),
+        "__TREND_OCC_YTD__":       _trend(latest_occ["ytd_occ"], ly_occ_ytd if ref_2025 else None),
+        "__TREND_ADR_YTD__":       _trend(latest_perf["adr_ytd"], ly_adr_ytd if ref_2025 else None),
+        "__TREND_REV_YTD__":       _trend(ytd_revenue, ly_rev if ref_2025 and ly_rev else None),
         "__OCC_WEEK_PCT__":        occ_week_pct,
         "__OCC_LASTWEEK_PCT__":    occ_lastweek_pct,
         "__ADR_WEEK__":            adr_week,
