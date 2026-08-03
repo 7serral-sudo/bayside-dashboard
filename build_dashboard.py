@@ -19,7 +19,7 @@ def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
     """Return a coloured HTML string for a KPI sub-label comparison."""
     if current is None or prev is None:
         return f'{label}: n/a'
-    green, red = '#22c55e', '#ef4444'
+    green, red = '#3FCF6E', '#F0564A'
     if current > prev:
         color = green if higher_is_better else red
         arrow = '↑'
@@ -44,10 +44,10 @@ def _color_yoy(text):
     """Wrap the (+X%) or (-X%) part of a YoY label in a coloured span."""
     if '(+' in text:
         idx = text.index('(+')
-        return text[:idx] + f'<span style="color:#22c55e">{text[idx:]}</span>'
+        return text[:idx] + f'<span style="color:#3FCF6E">{text[idx:]}</span>'
     if '(-' in text:
         idx = text.index('(-')
-        return text[:idx] + f'<span style="color:#ef4444">{text[idx:]}</span>'
+        return text[:idx] + f'<span style="color:#F0564A">{text[idx:]}</span>'
     return text
 
 SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -357,7 +357,7 @@ def build_web_channels_html(channels: dict):
     rows = []
     for ch, sessions in channels.items():
         rows.append(
-            f'          <div>{ch}: <strong style="color:#22c55e">{int(sessions)}</strong></div>'
+            f'          <div>{ch}: <strong style="color:#3FCF6E">{int(sessions)}</strong></div>'
         )
     return "\n".join(rows)
 
@@ -370,7 +370,7 @@ def build_web_countries_html(countries: list):
         rows.append(
             f'          <div style="display:flex;justify-content:space-between">'
             f'<span>{i+1}. {name}</span> '
-            f'<strong style="color:#22c55e">{int(sessions)}</strong></div>'
+            f'<strong style="color:#3FCF6E">{int(sessions)}</strong></div>'
         )
     return "\n".join(rows)
 
@@ -383,7 +383,7 @@ def build_web_device_html(devices: dict):
     for dv, count in devices.items():
         pct = count / total * 100
         rows.append(
-            f'          <div>{dv}: <strong style="color:#22c55e">{int(count)} ({pct:.0f}%)</strong></div>'
+            f'          <div>{dv}: <strong style="color:#3FCF6E">{int(count)} ({pct:.0f}%)</strong></div>'
         )
     return "\n".join(rows)
 
@@ -468,7 +468,7 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
             if ly_ci:
                 ci_pct = ((ci - ly_ci) / ly_ci * 100)
                 ci_sign = "+" if ci_pct >= 0 else ""
-                ci_color = '#22c55e' if ci_pct >= 0 else '#ef4444'
+                ci_color = '#3FCF6E' if ci_pct >= 0 else '#F0564A'
                 ci_yoy = f' <span style="color:{ci_color}">({ci_sign}{ci_pct:.0f}%)</span>'
             else:
                 ci_yoy = " (n/a)"
@@ -476,7 +476,7 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
             if ly_rev:
                 rev_pct = ((rev - ly_rev) / ly_rev * 100)
                 rev_sign = "+" if rev_pct >= 0 else ""
-                rev_color = '#22c55e' if rev_pct >= 0 else '#ef4444'
+                rev_color = '#3FCF6E' if rev_pct >= 0 else '#F0564A'
             else:
                 rev_pct, rev_sign, rev_color = 0, "", "#888888"
 
