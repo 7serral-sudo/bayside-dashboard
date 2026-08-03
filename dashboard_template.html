@@ -665,27 +665,27 @@ new Chart(document.getElementById('occChart'), {
         label: '2026',
         data: __OCC_CHART_DATA__,
         borderColor: '#FFFFFF',
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 2,
+        backgroundColor: 'rgba(255,255,255,0.06)',
         fill: true,
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#FFFFFF',
-        pointBorderColor: '#FFFFFF',
+        tension: 0.45,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#FFFFFF',
         spanGaps: false
       },
       {
         label: '2025',
         data: __OCC_CHART_DATA_LY__,
         borderColor: '#555',
+        borderWidth: 1.5,
         backgroundColor: 'transparent',
-        borderDash: [4, 4],
+        borderDash: [5, 5],
         fill: false,
-        tension: 0.3,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-        pointBackgroundColor: '#555',
-        pointBorderColor: '#555',
+        tension: 0.45,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#555',
         spanGaps: false
       }
     ]
@@ -705,6 +705,7 @@ new Chart(document.getElementById('occChart'), {
     },
     scales: {
       ...chartConfig.scales,
+      x: { ...chartConfig.scales.x, ticks: { ...chartConfig.scales.x.ticks, maxTicksLimit: 8, maxRotation: 0 } },
       y: { ...chartConfig.scales.y, min: 0, max: 120, ticks: { ...chartConfig.scales.y.ticks, callback: v => v + '%' } }
     }
   }
@@ -720,27 +721,27 @@ new Chart(document.getElementById('adrChart'), {
         label: '2026',
         data: __ADR_CHART_DATA__,
         borderColor: '#FFFFFF',
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 2,
+        backgroundColor: 'rgba(255,255,255,0.06)',
         fill: true,
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#FFFFFF',
-        pointBorderColor: '#FFFFFF',
+        tension: 0.45,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#FFFFFF',
         spanGaps: false
       },
       {
         label: '2025',
         data: __ADR_CHART_DATA_LY__,
         borderColor: '#555',
+        borderWidth: 1.5,
         backgroundColor: 'transparent',
-        borderDash: [4, 4],
+        borderDash: [5, 5],
         fill: false,
-        tension: 0.3,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-        pointBackgroundColor: '#555',
-        pointBorderColor: '#555',
+        tension: 0.45,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#555',
         spanGaps: false
       }
     ]
@@ -760,6 +761,7 @@ new Chart(document.getElementById('adrChart'), {
     },
     scales: {
       ...chartConfig.scales,
+      x: { ...chartConfig.scales.x, ticks: { ...chartConfig.scales.x.ticks, maxTicksLimit: 8, maxRotation: 0 } },
       y: { ...chartConfig.scales.y, ticks: { ...chartConfig.scales.y.ticks, callback: v => '$' + v } }
     }
   }
