@@ -226,32 +226,7 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
 /* ============================================================
    LEDE — the editorial summary
    ============================================================ */
-.lede { padding: var(--s8) 0 var(--s7); }
-.lede-logo { height: 44px; width: auto; margin-bottom: var(--s5); display: block; }
-[data-theme="light"] .lede-logo { filter: invert(1); }
-.asof {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.03em;
-  color: var(--n5); margin-top: var(--s5);
-  padding: 5px 12px 5px 10px;
-  border: 1px solid var(--line); border-radius: 999px;
-  background: var(--n2);
-}
-.asof .dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--good);
-  box-shadow: 0 0 0 3px var(--good-dim);
-  flex: none;
-}
-.lede h1 {
-  font-size: var(--t-hero); font-weight: 800; letter-spacing: -0.03em;
-  line-height: 1.02; color: var(--n8);
-}
-.lede .story {
-  margin-top: var(--s4); max-width: 62ch;
-  font-size: var(--t-lg); line-height: 1.45; font-weight: 400;
-  color: var(--n6); text-wrap: pretty;
-}
-.lede .story strong { color: var(--n7); font-weight: 600; }
+.lede { padding: var(--s6) 0 var(--s7); }
 
 /* hero stat strip */
 .hero-strip {
@@ -400,8 +375,12 @@ footer { border-top: 1px solid var(--line); margin-top: var(--s7); padding-block
 footer p { margin: 0; font-size: var(--t-sm); color: var(--n5); text-align: center; }
 
 /* ---------- reveal on scroll ---------- */
-.reveal { opacity: 0; transform: translateY(10px); }
-.reveal.in { opacity: 1; transform: none; transition: opacity 400ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Content is visible by default. Only hidden pre-reveal if JS confirms
+   (html.js-anim, set synchronously at the top of body) it can also un-hide
+   it — so a later script error can never leave a section permanently blank. */
+.reveal { opacity: 1; transform: none; }
+html.js-anim .reveal { opacity: 0; transform: translateY(10px); }
+html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms ease, transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; }
@@ -421,6 +400,7 @@ footer p { margin: 0; font-size: var(--t-sm); color: var(--n5); text-align: cent
 </style>
 </head>
 <body>
+<script>document.documentElement.classList.add('js-anim');</script>
 
 <!-- PASSWORD LOGIN SCREEN (mechanism unchanged; real auth coming separately) -->
 <div id="login-screen">
@@ -460,13 +440,7 @@ footer p { margin: 0; font-size: var(--t-sm); color: var(--n5); text-align: cent
 
   <!-- ═══════════ LEDE ═══════════ -->
   <div class="wrap lede">
-    <img src="/bayside-logo.png" alt="Bayside House" class="lede-logo">
-    <h1>The state of the house.</h1>
-    <p class="story" id="story-line">
-      <!-- Composed by JS from the live tokens below: the occupancy-up / rate-down tension in one sentence. -->
-      Loading summary…
-    </p>
-
+    <h1 class="visually-hidden">Bayside House performance dashboard</h1>
     <div class="hero-strip" role="group" aria-label="Headline year-to-date figures">
       <div class="hero-stat" data-trend="up">
         <div class="lbl">Revenue YTD</div>
@@ -940,45 +914,20 @@ function parseNum(str) {
 }
 function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-/* ─── tidy the "as of" badge — keep just the week + date ──────── */
-(function () {
-  var el = document.getElementById('asof-text');
-  var raw = el.textContent.trim();
-  var week = raw.match(/Week\s+\d+\s+of\s+\d+/i);
-  var date = raw.match(/through\s+(.+)$/i);
-  el.textContent = (week ? week[0] : '') + (week && date ? ' · ' : '') + (date ? 'Data through ' + date[1] : (date ? '' : raw));
-})();
-
-/* ─── editorial summary + RevPAR, computed from live tokens ──── */
-(function () {
-  var occ  = parseNum(document.getElementById('hero-occ').textContent);
-  var adr  = parseNum(document.getElementById('hero-adr').textContent);
-  var rev  = document.getElementById('hero-rev').textContent.trim();
-  var occT = document.querySelector('.hero-stat[data-trend]:nth-child(2)');
-  var adrT = document.querySelector('.hero-stat[data-trend]:nth-child(3)');
-  var occUp  = occT && occT.getAttribute('data-trend') === 'up';
-  var adrDown = adrT && adrT.getAttribute('data-trend') === 'down';
-
-  if (occ != null && adr != null) {
-    var revpar = occ / 100 * adr;
-    document.getElementById('hero-revpar').textContent = '$' + revpar.toFixed(2);
+/* ─── RevPAR, computed from live tokens ───────────────────────── */
+try {
+  var occEl = document.getElementById('hero-occ');
+  var adrEl = document.getElementById('hero-adr');
+  var revparEl = document.getElementById('hero-revpar');
+  if (occEl && adrEl && revparEl) {
+    var occ = parseNum(occEl.textContent);
+    var adr = parseNum(adrEl.textContent);
+    if (occ != null && adr != null) revparEl.textContent = '$' + (occ / 100 * adr).toFixed(2);
   }
-
-  var story;
-  if (occUp && adrDown) {
-    story = 'Revenue is at <strong>' + rev + '</strong> because <strong>volume is beating rate</strong>: ' +
-            'occupancy is well ahead of last year while the average nightly rate has slipped. ' +
-            'The house is fuller — each bed is earning slightly less.';
-  } else if (occUp) {
-    story = 'Occupancy and revenue are both ahead of last year. Revenue stands at <strong>' + rev + '</strong>.';
-  } else {
-    story = 'Revenue stands at <strong>' + rev + '</strong> year to date. See the cards below for where the pressure is.';
-  }
-  document.getElementById('story-line').innerHTML = story;
-})();
+} catch (e) { console.error('RevPAR calc failed', e); }
 
 /* ─── trend chips beside KPI values ──────────────────────────── */
-(function () {
+try {
   var arrowUp   = '<svg viewBox="0 0 10 10" fill="currentColor"><path d="M5 1l4 5H6v3H4V6H1z"/></svg>';
   var arrowDown = '<svg viewBox="0 0 10 10" fill="currentColor"><path d="M5 9L1 4h3V1h2v3h3z"/></svg>';
   document.querySelectorAll('.kpi-card[data-trend], .hero-stat[data-trend]').forEach(function (card) {
@@ -992,33 +941,34 @@ function css(name) { return getComputedStyle(document.documentElement).getProper
     chip.innerHTML = (t === 'up' ? arrowUp : arrowDown);
     val.appendChild(chip);
   });
-})();
+} catch (e) { console.error('Trend chips failed', e); }
 
 /* ─── count-up on first paint (reduced-motion respected) ─────── */
-(function () {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  document.querySelectorAll('.kpi-value, .hero-stat .val').forEach(function (el) {
-    var text = el.childNodes[0] && el.childNodes[0].nodeValue;
-    var target = parseNum(text);
-    if (target == null || text == null) return;
-    var prefix = text.match(/^[^0-9-]*/)[0];
-    var suffix = text.replace(/^[^0-9-]*-?[\d,]+(\.\d+)?/, '');
-    var decimals = (String(target).split('.')[1] || '').length;
-    var start = performance.now(), dur = 650;
-    function frame(now) {
-      var p = Math.min((now - start) / dur, 1);
-      var eased = 1 - Math.pow(1 - p, 3);
-      var v = (target * eased).toFixed(decimals);
-      if (decimals === 0) v = Number(v).toLocaleString('en-AU');
-      el.childNodes[0].nodeValue = prefix + v + suffix;
-      if (p < 1) requestAnimationFrame(frame);
-    }
-    requestAnimationFrame(frame);
-  });
-})();
+try {
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('.kpi-value, .hero-stat .val').forEach(function (el) {
+      var text = el.childNodes[0] && el.childNodes[0].nodeValue;
+      var target = parseNum(text);
+      if (target == null || text == null) return;
+      var prefix = text.match(/^[^0-9-]*/)[0];
+      var suffix = text.replace(/^[^0-9-]*-?[\d,]+(\.\d+)?/, '');
+      var decimals = (String(target).split('.')[1] || '').length;
+      var start = performance.now(), dur = 650;
+      function frame(now) {
+        var p = Math.min((now - start) / dur, 1);
+        var eased = 1 - Math.pow(1 - p, 3);
+        var v = (target * eased).toFixed(decimals);
+        if (decimals === 0) v = Number(v).toLocaleString('en-AU');
+        el.childNodes[0].nodeValue = prefix + v + suffix;
+        if (p < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+} catch (e) { console.error('Count-up failed', e); }
 
 /* ─── reveal on scroll, 40ms cascade ─────────────────────────── */
-(function () {
+try {
   var els = document.querySelectorAll('.reveal');
   var io = new IntersectionObserver(function (entries) {
     entries.forEach(function (e, i) {
@@ -1029,10 +979,10 @@ function css(name) { return getComputedStyle(document.documentElement).getProper
     });
   }, { rootMargin: '0px 0px -8% 0px' });
   els.forEach(function (el) { io.observe(el); });
-})();
+} catch (e) { console.error('Reveal-on-scroll failed', e); }
 
 /* ─── scroll-spy nav ─────────────────────────────────────────── */
-(function () {
+try {
   var links = document.querySelectorAll('nav.primary a');
   var map = {};
   links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
@@ -1050,7 +1000,7 @@ function css(name) { return getComputedStyle(document.documentElement).getProper
     var el = document.getElementById(id);
     if (el) spy.observe(el);
   });
-})();
+} catch (e) { console.error('Scroll-spy failed', e); }
 
 /* ─── charts ─────────────────────────────────────────────────── */
 var chartRegistry = [];
@@ -1169,7 +1119,7 @@ function rebuildCharts() {
   chartRegistry = [];
   buildCharts();
 }
-buildCharts();
+try { buildCharts(); } catch (e) { console.error('Chart build failed', e); }
 </script>
 
 </body>
