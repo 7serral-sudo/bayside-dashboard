@@ -9,319 +9,221 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
+  /* Brand palette: F4FEF6 / E7E1D6 / A7B59A / 7C8A73 / 2E2E2E */
+  :root {
+    --cream:      #F4FEF6;
+    --sand:       #E7E1D6;
+    --sage-light: #A7B59A;
+    --sage:       #7C8A73;
+    --charcoal:   #2E2E2E;
+    --sage-faint: rgba(124,138,115,0.10);
+    --sage-mid:   rgba(124,138,115,0.20);
+    --sage-border:rgba(124,138,115,0.25);
+  }
+
   * { font-family: 'Inter', sans-serif; }
 
   body {
-    color: #e8f0f5;
+    background: var(--cream);
+    color: var(--charcoal);
     position: relative;
     overflow-x: hidden;
   }
 
+  /* ── LOGIN ── */
   #login-screen {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, #0a1517 0%, #1a2524 100%);
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #e7e1d6 0%, #f4fef6 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
   }
-
-  #login-screen.hidden {
-    display: none;
-  }
+  #login-screen.hidden { display: none; }
 
   .login-card {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(94, 210, 156, 0.2);
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--sage-border);
     border-radius: 20px;
     padding: 48px;
     width: 100%;
     max-width: 400px;
     text-align: center;
   }
-
-  .login-title {
-    font-size: 32px;
-    font-weight: 900;
-    margin-bottom: 8px;
-    color: #e8f0f5;
-  }
-
-  .login-subtitle {
-    font-size: 14px;
-    color: #9ca3af;
-    margin-bottom: 32px;
-  }
+  .login-title    { font-size:32px; font-weight:900; margin-bottom:8px; color:var(--charcoal); }
+  .login-subtitle { font-size:14px; color:var(--sage); margin-bottom:32px; }
 
   .login-input {
     width: 100%;
     padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(94, 210, 156, 0.2);
+    background: rgba(255,255,255,0.8);
+    border: 1px solid var(--sage-border);
     border-radius: 10px;
-    color: #e8f0f5;
+    color: var(--charcoal);
     font-size: 14px;
     margin-bottom: 16px;
     transition: all 0.3s;
   }
-
   .login-input:focus {
     outline: none;
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(94, 210, 156, 0.5);
-    box-shadow: 0 0 16px rgba(94, 210, 156, 0.1);
+    border-color: var(--sage);
+    box-shadow: 0 0 0 3px var(--sage-faint);
   }
-
   .login-button {
     width: 100%;
     padding: 14px 16px;
-    background: #5ed29c;
+    background: var(--sage);
     border: none;
     border-radius: 10px;
-    color: #000;
+    color: #fff;
     font-weight: 700;
     font-size: 14px;
     cursor: pointer;
     transition: all 0.3s;
+    letter-spacing: 0.05em;
   }
+  .login-button:hover  { background: var(--sage-light); transform: translateY(-2px); }
+  .login-button:active { transform: translateY(0); }
+  .login-error { color: #c0392b; font-size:12px; margin-bottom:16px; display:none; }
 
-  .login-button:hover {
-    background: #4fc888;
-    transform: translateY(-2px);
-  }
+  #dashboard-content        { display: block; }
+  #dashboard-content.hidden { display: none; }
 
-  .login-button:active {
-    transform: translateY(0);
-  }
-
-  .login-error {
-    color: #ef4444;
-    font-size: 12px;
-    margin-bottom: 16px;
-    display: none;
-  }
-
-  #dashboard-content {
-    display: block;
-  }
-
-  #dashboard-content.hidden {
-    display: none;
-  }
-
-  #video-bg {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.8;
-    z-index: 0;
-  }
-
-  .video-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  .overlay-left {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, rgba(7, 11, 10, 0.8) 0%, rgba(7, 11, 10, 0.4) 50%, transparent 100%);
-  }
-
-  .overlay-bottom {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent 0%, rgba(7, 11, 10, 0.7) 40%, rgba(7, 11, 10, 0.9) 100%);
-  }
-
-  .container-main {
-    position: relative;
-    z-index: 10;
-  }
-
-  .liquid-glass {
-    background: rgba(255, 255, 255, 0.01);
-    background-blend-mode: luminosity;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-  }
-
-  .liquid-glass::before {
+  /* ── BACKGROUND ── */
+  body::before {
     content: '';
-    position: absolute;
+    position: fixed;
     inset: 0;
-    padding: 1.4px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.3), transparent);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    border-radius: 12px;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 15% 20%, rgba(167,181,154,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 80%, rgba(231,225,214,0.5) 0%, transparent 60%),
+      linear-gradient(160deg, #f4fef6 0%, #ede8e0 50%, #f0f5ee 100%);
     pointer-events: none;
   }
 
-  .accent-green { color: #5ed29c; }
-  .accent-green-bg { background-color: #5ed29c; }
+  /* hide video — not needed with the new palette */
+  #video-bg, .video-overlay { display: none; }
 
+  .container-main { position: relative; z-index: 10; }
+
+  /* ── HEADER ── */
   header {
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(7, 11, 10, 0.7);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid rgba(94, 210, 156, 0.1);
+    background: rgba(244,254,246,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--sage-border);
   }
+  .nav-link { position:relative; transition: color 0.3s; color: var(--sage); font-weight:600; }
+  .nav-link:hover { color: var(--charcoal); }
 
-  .nav-link {
-    position: relative;
-    transition: color 0.3s;
-  }
-
-  .nav-link:hover {
-    color: #5ed29c;
-  }
-
+  /* ── HERO ── */
   .hero-title {
     font-family: 'Inter', sans-serif;
     font-weight: 900;
-    font-size: clamp(40px, 8vw, 72px);
+    font-size: clamp(36px, 7vw, 64px);
     letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 1.15;
     text-transform: uppercase;
-    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+    color: var(--charcoal);
   }
-
   .hero-eyebrow {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-weight: 700;
     font-size: 11px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #5ed29c;
+    color: var(--sage);
     margin-bottom: 24px;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
   }
 
+  /* ── KPI CARDS ── */
   .kpi-card {
     position: relative;
-    background: linear-gradient(135deg, rgba(94, 210, 156, 0.05), rgba(94, 210, 156, 0.02));
-    border: 1px solid rgba(94, 210, 156, 0.15);
+    background: rgba(255,255,255,0.75);
+    border: 1px solid var(--sage-border);
     padding: 24px;
     border-radius: 16px;
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    backdrop-filter: blur(6px);
   }
-
   .kpi-card:hover {
-    border-color: rgba(94, 210, 156, 0.4);
-    box-shadow: 0 20px 40px rgba(94, 210, 156, 0.1);
+    border-color: var(--sage);
+    box-shadow: 0 16px 36px rgba(124,138,115,0.15);
     transform: translateY(-4px);
   }
-
   .kpi-label {
-    font-size: 12px;
-    color: #9ca3af;
+    font-size: 11px;
+    color: var(--sage);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     margin-bottom: 8px;
-    font-weight: 600;
+    font-weight: 700;
   }
-
   .kpi-value {
     font-size: clamp(24px, 5vw, 36px);
     font-weight: 800;
     letter-spacing: -0.02em;
+    color: var(--charcoal);
   }
+  .kpi-sub { font-size: 13px; color: var(--sage-light); margin-top: 8px; }
 
-  .kpi-sub {
-    font-size: 13px;
-    color: #6b7280;
-    margin-top: 8px;
-  }
-
+  /* ── CHART CARDS ── */
   .chart-card {
-    background: rgba(255, 255, 255, 0.01);
-    border: 1px solid rgba(94, 210, 156, 0.1);
+    background: rgba(255,255,255,0.75);
+    border: 1px solid var(--sage-border);
     border-radius: 16px;
     padding: 24px;
     position: relative;
     overflow: hidden;
+    backdrop-filter: blur(6px);
   }
-
-  .chart-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(94, 210, 156, 0.03), transparent);
-    pointer-events: none;
-  }
-
   .chart-title {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     margin-bottom: 20px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #e8f0f5;
+    letter-spacing: 0.08em;
+    color: var(--charcoal);
   }
 
+  /* ── SECTION TITLES ── */
   .section-title {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 18px;
+    font-weight: 800;
     margin-top: 48px;
     margin-bottom: 24px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
+    color: var(--charcoal);
   }
 
+  /* ── MONTHLY CARDS ── */
   .monthly-card {
-    background: rgba(94, 210, 156, 0.05);
-    border: 1px solid rgba(94, 210, 156, 0.1);
+    background: rgba(255,255,255,0.7);
+    border: 1px solid var(--sage-border);
     border-radius: 12px;
     padding: 16px;
     text-align: center;
     transition: all 0.2s;
   }
-
   .monthly-card:hover {
-    background: rgba(94, 210, 156, 0.1);
-    border-color: rgba(94, 210, 156, 0.3);
+    background: rgba(255,255,255,0.95);
+    border-color: var(--sage);
+    box-shadow: 0 8px 24px rgba(124,138,115,0.12);
   }
+  .monthly-month { font-size:12px; color:var(--sage); text-transform:uppercase; font-weight:700; margin-bottom:8px; letter-spacing:.06em; }
+  .monthly-value { font-size:20px; font-weight:800; color:var(--sage); }
+  .monthly-sub   { font-size:11px; color:var(--sage-light); margin-top:4px; }
 
-  .monthly-month {
-    font-size: 12px;
-    color: #9ca3af;
-    text-transform: uppercase;
-    font-weight: 600;
-    margin-bottom: 8px;
-  }
-
-  .monthly-value {
-    font-size: 20px;
-    font-weight: 800;
-    color: #5ed29c;
-  }
-
-  .monthly-sub {
-    font-size: 11px;
-    color: #6b7280;
-    margin-top: 4px;
-  }
+  /* ── ACCENT ── */
+  .accent-green    { color: var(--sage); }
+  .accent-green-bg { background-color: var(--sage); }
 </style>
 </head>
 <body>
@@ -366,7 +268,7 @@
 
     <div class="text-center mb-20">
       <div style="margin-bottom: 20px;">
-        <img src="/bayside-logo.png" alt="Bayside House" style="height: 120px; width: auto; margin: 0 auto; filter: drop-shadow(0 4px 12px rgba(94, 210, 156, 0.3));">
+        <img src="/bayside-logo.png" alt="Bayside House" style="height: 120px; width: auto; margin: 0 auto; filter: drop-shadow(0 4px 12px rgba(124, 138, 115, 0.2));">
       </div>
       <h1 class="hero-title mb-6">
         Operations Dashboard
@@ -386,37 +288,37 @@
       <div class="kpi-card">
         <div class="kpi-label">Occupancy</div>
         <div class="kpi-value">__OCC_WEEK_PCT__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs last week: __OCC_LASTWEEK_PCT__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">vs last week: __OCC_LASTWEEK_PCT__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Average Daily Rate</div>
         <div class="kpi-value">__ADR_WEEK__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs last week: __ADR_LASTWEEK__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">vs last week: __ADR_LASTWEEK__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Check-ins This Week</div>
         <div class="kpi-value">__CHECKINS_WEEK__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs last week: __CHECKINS_LASTWEEK__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">vs last week: __CHECKINS_LASTWEEK__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">This Week Bookings</div>
         <div class="kpi-value">__WEEK_BOOKINGS__</div>
-        <div class="kpi-sub" style="color: #6b7280;">Booked and stayed the same week</div>
+        <div class="kpi-sub" style="color: #A7B59A;">Booked and stayed the same week</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Total Bookings This Week</div>
         <div class="kpi-value">__TOTAL_WEEK_BOOKINGS__</div>
-        <div class="kpi-sub" style="color: #6b7280;">All bookings created this week</div>
+        <div class="kpi-sub" style="color: #A7B59A;">All bookings created this week</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Long-Termers</div>
         <div class="kpi-value">__LONG_TERMERS__</div>
-        <div class="kpi-sub" style="color: #6b7280;">Guests staying over 28 nights</div>
+        <div class="kpi-sub" style="color: #A7B59A;">Guests staying over 28 nights</div>
       </div>
     </div>
   </section>
@@ -428,19 +330,19 @@
       <div class="kpi-card">
         <div class="kpi-label">Occupancy __MTD_MONTH_LABEL__</div>
         <div class="kpi-value">__OCC_MONTH_PCT__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs last year: __OCC_MONTH_LY_PCT__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">vs last year: __OCC_MONTH_LY_PCT__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">ADR __MTD_MONTH_LABEL__</div>
         <div class="kpi-value">__ADR_MONTH__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs last year: __ADR_MONTH_LY__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">vs last year: __ADR_MONTH_LY__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Revenue __MTD_MONTH_LABEL__</div>
         <div class="kpi-value">__MTD_REVENUE__</div>
-        <div class="kpi-sub" style="color: #6b7280;">__MTD_YOY_LABEL__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">__MTD_YOY_LABEL__</div>
       </div>
     </div>
   </section>
@@ -452,19 +354,19 @@
       <div class="kpi-card">
         <div class="kpi-label">Occupancy YTD</div>
         <div class="kpi-value">__OCC_YTD_PCT__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs last year: __OCC_LASTYEAR_PCT__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">vs last year: __OCC_LASTYEAR_PCT__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">ADR YTD</div>
         <div class="kpi-value">__ADR_YTD__</div>
-        <div class="kpi-sub" style="color: #6b7280;">vs last year: __ADR_LASTYEAR__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">vs last year: __ADR_LASTYEAR__</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Revenue YTD</div>
         <div class="kpi-value">__YTD_REVENUE__</div>
-        <div class="kpi-sub" style="color: #6b7280;">__YTD_REVENUE_WEEK_LABEL__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">__YTD_REVENUE_WEEK_LABEL__</div>
       </div>
     </div>
   </section>
@@ -476,13 +378,13 @@
       <div class="kpi-card">
         <div class="kpi-label">Private Room ADR YTD</div>
         <div class="kpi-value">__PRIVATE_ROOM_ADR_YTD__</div>
-        <div class="kpi-sub" style="color: #6b7280;">6 private rooms</div>
+        <div class="kpi-sub" style="color: #A7B59A;">6 private rooms</div>
       </div>
 
       <div class="kpi-card">
         <div class="kpi-label">Pod ADR YTD</div>
         <div class="kpi-value">__PODS_ADR_YTD__</div>
-        <div class="kpi-sub" style="color: #6b7280;">78 pods</div>
+        <div class="kpi-sub" style="color: #A7B59A;">78 pods</div>
       </div>
     </div>
   </section>
@@ -536,22 +438,22 @@
       <div class="kpi-card">
         <div class="kpi-label">Total Sessions</div>
         <div class="kpi-value">__WEB_SESSIONS__</div>
-        <div class="kpi-sub" style="color: #6b7280;">Users: __WEB_USERS__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">Users: __WEB_USERS__</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Page Views</div>
         <div class="kpi-value">__WEB_PAGEVIEWS__</div>
-        <div class="kpi-sub" style="color: #6b7280;">Avg per session: __WEB_AVG_PER_SESSION__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">Avg per session: __WEB_AVG_PER_SESSION__</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Top Traffic Source</div>
         <div class="kpi-value">__WEB_TOP_SOURCE__</div>
-        <div class="kpi-sub" style="color: #6b7280;">__WEB_TOP_SOURCE_SUB__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">__WEB_TOP_SOURCE_SUB__</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Top Country</div>
         <div class="kpi-value">__WEB_TOP_COUNTRY__</div>
-        <div class="kpi-sub" style="color: #6b7280;">__WEB_TOP_COUNTRY_SUB__</div>
+        <div class="kpi-sub" style="color: #A7B59A;">__WEB_TOP_COUNTRY_SUB__</div>
       </div>
     </div>
 
@@ -587,7 +489,7 @@ __WEB_DEVICE_HTML__
       <div class="liquid-glass" style="padding: 24px; border-radius: 12px; text-align: center;">
         <img src="/google-icon.png" alt="Google" width="48" height="48" style="margin: 0 auto 12px; border-radius: 10px;">
         <div style="font-size: 14px; color: #94a3b8; margin-bottom: 8px;">Google</div>
-        <div style="font-size: 28px; font-weight: 700; color: #5ed29c; margin-bottom: 4px;">__REVIEW_GOOGLE_RATING__</div>
+        <div style="font-size: 28px; font-weight: 700; color: #7C8A73; margin-bottom: 4px;">__REVIEW_GOOGLE_RATING__</div>
         <div style="font-size: 12px; color: #64748b;">__REVIEW_GOOGLE_COUNT__ reviews</div>
       </div>
 
@@ -598,7 +500,7 @@ __WEB_DEVICE_HTML__
           <text x="12" y="16" font-size="16" font-weight="700" fill="#FFF" text-anchor="middle">B</text>
         </svg>
         <div style="font-size: 14px; color: #94a3b8; margin-bottom: 8px;">Booking.com</div>
-        <div style="font-size: 28px; font-weight: 700; color: #5ed29c; margin-bottom: 4px;">__REVIEW_BOOKING_RATING__</div>
+        <div style="font-size: 28px; font-weight: 700; color: #7C8A73; margin-bottom: 4px;">__REVIEW_BOOKING_RATING__</div>
         <div style="font-size: 12px; color: #64748b;">__REVIEW_BOOKING_COUNT__ reviews</div>
       </div>
 
@@ -606,7 +508,7 @@ __WEB_DEVICE_HTML__
       <div class="liquid-glass" style="padding: 24px; border-radius: 12px; text-align: center;">
         <img src="/hostelworld-icon.png" alt="Hostelworld" width="48" height="48" style="margin: 0 auto 12px; border-radius: 10px;">
         <div style="font-size: 14px; color: #94a3b8; margin-bottom: 8px;">Hostelworld</div>
-        <div style="font-size: 28px; font-weight: 700; color: #5ed29c; margin-bottom: 4px;">__REVIEW_HOSTELWORLD_RATING__</div>
+        <div style="font-size: 28px; font-weight: 700; color: #7C8A73; margin-bottom: 4px;">__REVIEW_HOSTELWORLD_RATING__</div>
         <div style="font-size: 12px; color: #64748b;">__REVIEW_HOSTELWORLD_COUNT__ reviews</div>
       </div>
 
@@ -614,7 +516,7 @@ __WEB_DEVICE_HTML__
       <div class="liquid-glass" style="padding: 24px; border-radius: 12px; text-align: center;">
         <img src="/expedia-icon.png" alt="Expedia" width="48" height="48" style="margin: 0 auto 12px; border-radius: 10px;">
         <div style="font-size: 14px; color: #94a3b8; margin-bottom: 8px;">Expedia</div>
-        <div style="font-size: 28px; font-weight: 700; color: #5ed29c; margin-bottom: 4px;">__REVIEW_EXPEDIA_RATING__</div>
+        <div style="font-size: 28px; font-weight: 700; color: #7C8A73; margin-bottom: 4px;">__REVIEW_EXPEDIA_RATING__</div>
         <div style="font-size: 12px; color: #64748b;">__REVIEW_EXPEDIA_COUNT__ reviews</div>
       </div>
     </div>
@@ -640,18 +542,18 @@ __MONTHLY_CARDS_HTML__
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="background:rgba(0,0,0,0.2)">
-            <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280">Campaign</th>
-            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280">Sent</th>
-            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280">Delivered</th>
-            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280">Opens</th>
-            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280">Clicks</th>
-            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280">Bounces</th>
-            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#6b7280">Unsubs</th>
+            <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#A7B59A">Campaign</th>
+            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#A7B59A">Sent</th>
+            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#A7B59A">Delivered</th>
+            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#A7B59A">Opens</th>
+            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#A7B59A">Clicks</th>
+            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#A7B59A">Bounces</th>
+            <th style="text-align:right;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#A7B59A">Unsubs</th>
           </tr>
         </thead>
         <tbody>
           <tr style="border-top:1px solid rgba(94,210,156,0.08)">
-            <td style="padding:12px 16px"><strong>Discover Melbourne</strong><br><span style="font-size:11px;color:#6b7280;font-style:italic">Sep 12, 2025</span></td>
+            <td style="padding:12px 16px"><strong>Discover Melbourne</strong><br><span style="font-size:11px;color:#A7B59A;font-style:italic">Sep 12, 2025</span></td>
             <td style="padding:12px 16px;text-align:right;font-weight:600">2,552</td>
             <td style="padding:12px 16px;text-align:right;color:#10b981">2,487 (97.5%)</td>
             <td style="padding:12px 16px;text-align:right;color:#10b981">300 (12.1%)</td>
@@ -660,7 +562,7 @@ __MONTHLY_CARDS_HTML__
             <td style="padding:12px 16px;text-align:right">60 (2.4%)</td>
           </tr>
           <tr style="border-top:1px solid rgba(94,210,156,0.08);background:rgba(0,0,0,0.15)">
-            <td style="padding:12px 16px"><strong>Winter Warmer Deals</strong><br><span style="font-size:11px;color:#6b7280;font-style:italic">Jul 17, 2025</span></td>
+            <td style="padding:12px 16px"><strong>Winter Warmer Deals</strong><br><span style="font-size:11px;color:#A7B59A;font-style:italic">Jul 17, 2025</span></td>
             <td style="padding:12px 16px;text-align:right;font-weight:600">2,673</td>
             <td style="padding:12px 16px;text-align:right;color:#f59e0b">2,499 (93.5%)</td>
             <td style="padding:12px 16px;text-align:right;color:#10b981">300 (12.0%)</td>
@@ -669,7 +571,7 @@ __MONTHLY_CARDS_HTML__
             <td style="padding:12px 16px;text-align:right">68 (2.7%)</td>
           </tr>
           <tr style="border-top:1px solid rgba(94,210,156,0.08)">
-            <td style="padding:12px 16px"><strong>Stay Longer</strong><br><span style="font-size:11px;color:#6b7280;font-style:italic">May 6, 2026</span></td>
+            <td style="padding:12px 16px"><strong>Stay Longer</strong><br><span style="font-size:11px;color:#A7B59A;font-style:italic">May 6, 2026</span></td>
             <td style="padding:12px 16px;text-align:right;font-weight:600">2,581</td>
             <td style="padding:12px 16px;text-align:right;color:#10b981">2,494 (96.6%)</td>
             <td style="padding:12px 16px;text-align:right;color:#ef4444">152 (6.1%)</td>
@@ -681,12 +583,12 @@ __MONTHLY_CARDS_HTML__
       </table>
     </div>
     <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(94,210,156,0.12);border-radius:16px;padding:20px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em;color:#e8f0f5">Key Insights</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em;color:#2E2E2E">Key Insights</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
-        <div style="padding:12px 14px;background:rgba(0,0,0,0.2);border-radius:10px;color:#e8f0f5">⚠️ <strong>May 2026 open rate halved</strong> — 6.1% vs 12% prior. Review subject line &amp; send timing.</div>
-        <div style="padding:12px 14px;background:rgba(0,0,0,0.2);border-radius:10px;color:#e8f0f5">✅ <strong>Delivery improving</strong> — bounce rate fell from 6.5% to 3.4% across campaigns.</div>
-        <div style="padding:12px 14px;background:rgba(0,0,0,0.2);border-radius:10px;color:#e8f0f5">💡 <strong>Clicks under 0.5%</strong> — CTAs need stronger copy and clearer booking links.</div>
-        <div style="padding:12px 14px;background:rgba(0,0,0,0.2);border-radius:10px;color:#e8f0f5">📅 <strong>Only 3 sends in 12 months</strong> — monthly cadence recommended to keep list warm.</div>
+        <div style="padding:12px 14px;background:rgba(124,138,115,0.08);border-radius:10px;color:#2E2E2E">⚠️ <strong>May 2026 open rate halved</strong> — 6.1% vs 12% prior. Review subject line &amp; send timing.</div>
+        <div style="padding:12px 14px;background:rgba(124,138,115,0.08);border-radius:10px;color:#2E2E2E">✅ <strong>Delivery improving</strong> — bounce rate fell from 6.5% to 3.4% across campaigns.</div>
+        <div style="padding:12px 14px;background:rgba(124,138,115,0.08);border-radius:10px;color:#2E2E2E">💡 <strong>Clicks under 0.5%</strong> — CTAs need stronger copy and clearer booking links.</div>
+        <div style="padding:12px 14px;background:rgba(124,138,115,0.08);border-radius:10px;color:#2E2E2E">📅 <strong>Only 3 sends in 12 months</strong> — monthly cadence recommended to keep list warm.</div>
       </div>
     </div>
   </section>
@@ -752,16 +654,16 @@ const chartConfig = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: 'rgba(7, 11, 10, 0.9)',
-      borderColor: '#5ed29c',
+      backgroundColor: 'rgba(244,254,246,0.97)',
+      borderColor: '#7C8A73',
       borderWidth: 1,
-      titleColor: '#e8f0f5',
-      bodyColor: '#9ca3af'
+      titleColor: '#2E2E2E',
+      bodyColor: '#7C8A73'
     }
   },
   scales: {
-    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280' } },
-    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280' } }
+    x: { grid: { color: 'rgba(124,138,115,0.1)' }, ticks: { color: '#A7B59A' } },
+    y: { grid: { color: 'rgba(124,138,115,0.1)' }, ticks: { color: '#A7B59A' } }
   }
 };
 
@@ -770,7 +672,7 @@ const twoToneLegend = {
   display: true,
   position: 'top',
   align: 'end',
-  labels: { color: '#e8f0f5', boxWidth: 12, boxHeight: 12, font: { size: 11 } }
+  labels: { color: '#2E2E2E', boxWidth: 12, boxHeight: 12, font: { size: 11 } }
 };
 
 // Occupancy Chart (this year vs last year)
@@ -782,8 +684,8 @@ new Chart(document.getElementById('occChart'), {
       {
         label: '2026',
         data: __OCC_CHART_DATA__,
-        borderColor: '#5ed29c',
-        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        borderColor: '#7C8A73',
+        backgroundColor: 'rgba(124,138,115,0.12)',
         fill: true,
         tension: 0.3,
         pointRadius: 0,
@@ -792,7 +694,7 @@ new Chart(document.getElementById('occChart'), {
       {
         label: '2025',
         data: __OCC_CHART_DATA_LY__,
-        borderColor: '#6b7280',
+        borderColor: '#A7B59A',
         backgroundColor: 'transparent',
         borderDash: [4, 4],
         fill: false,
@@ -821,8 +723,8 @@ new Chart(document.getElementById('adrChart'), {
       {
         label: '2026',
         data: __ADR_CHART_DATA__,
-        borderColor: '#5ed29c',
-        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        borderColor: '#7C8A73',
+        backgroundColor: 'rgba(124,138,115,0.12)',
         fill: true,
         tension: 0.3,
         pointRadius: 0,
@@ -831,7 +733,7 @@ new Chart(document.getElementById('adrChart'), {
       {
         label: '2025',
         data: __ADR_CHART_DATA_LY__,
-        borderColor: '#6b7280',
+        borderColor: '#A7B59A',
         backgroundColor: 'transparent',
         borderDash: [4, 4],
         fill: false,
@@ -860,7 +762,7 @@ new Chart(document.getElementById('ciChart'), {
       {
         label: '2026',
         data: __CI_CHART_DATA__,
-        backgroundColor: '#5ed29c',
+        backgroundColor: '#7C8A73',
         borderRadius: 4,
         borderWidth: 0
       },
@@ -894,7 +796,7 @@ new Chart(document.getElementById('channelsChart'), {
     ...chartConfig,
     plugins: {
       ...chartConfig.plugins,
-      legend: { display: true, position: 'top', align: 'end', labels: { color: '#e8f0f5', boxWidth: 10, boxHeight: 10, font: { size: 10 } } }
+      legend: { display: true, position: 'top', align: 'end', labels: { color: '#2E2E2E', boxWidth: 10, boxHeight: 10, font: { size: 10 } } }
     },
     scales: {
       ...chartConfig.scales,
@@ -912,12 +814,12 @@ new Chart(document.getElementById('roomAdrChart'), {
       {
         label: 'Private Room ADR',
         data: __ROOM_ADR_PRIVATE_DATA__,
-        borderColor: '#5ed29c',
-        backgroundColor: 'rgba(94, 210, 156, 0.1)',
+        borderColor: '#7C8A73',
+        backgroundColor: 'rgba(124,138,115,0.12)',
         fill: true,
         tension: 0.3,
         pointRadius: 4,
-        pointBackgroundColor: '#5ed29c',
+        pointBackgroundColor: '#7C8A73',
         spanGaps: false
       },
       {
