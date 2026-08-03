@@ -228,8 +228,17 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
    ============================================================ */
 .lede { padding: var(--s8) 0 var(--s7); }
 .asof {
-  font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--n5); margin-bottom: var(--s4);
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.03em;
+  color: var(--n5); margin-bottom: var(--s5);
+  padding: 5px 12px 5px 10px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--n2);
+}
+.asof .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--good);
+  box-shadow: 0 0 0 3px var(--good-dim);
+  flex: none;
 }
 .lede h1 {
   font-size: var(--t-hero); font-weight: 800; letter-spacing: -0.03em;
@@ -449,7 +458,7 @@ footer p { margin: 0; font-size: var(--t-sm); color: var(--n5); text-align: cent
 
   <!-- ═══════════ LEDE ═══════════ -->
   <div class="wrap lede">
-    <p class="asof">Bayside House Dashboard · Week 31 of 52 · Year-to-date data through 29 Jul 2026</p>
+    <p class="asof"><span class="dot" aria-hidden="true"></span><span id="asof-text">Bayside House Dashboard · Week 31 of 52 · Year-to-date data through 29 Jul 2026</span></p>
     <h1>The state of the house.</h1>
     <p class="story" id="story-line">
       <!-- Composed by JS from the live tokens below: the occupancy-up / rate-down tension in one sentence. -->
@@ -928,6 +937,15 @@ function parseNum(str) {
   return m ? parseFloat(m[0]) : null;
 }
 function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+/* ─── tidy the "as of" badge — keep just the week + date ──────── */
+(function () {
+  var el = document.getElementById('asof-text');
+  var raw = el.textContent.trim();
+  var week = raw.match(/Week\s+\d+\s+of\s+\d+/i);
+  var date = raw.match(/through\s+(.+)$/i);
+  el.textContent = (week ? week[0] : '') + (week && date ? ' · ' : '') + (date ? 'Data through ' + date[1] : (date ? '' : raw));
+})();
 
 /* ─── editorial summary + RevPAR, computed from live tokens ──── */
 (function () {
