@@ -71,7 +71,7 @@ SOURCE_DISPLAY = {
     "Walk + Ph":   "Walk-in & Phone",
 }
 SOURCE_COLORS = [
-    "#5ed29c", "#4ca57a", "#4d7368", "#5a9b8e", "#3f8f6a", "#6b7280",
+    "#ffffff", "#a0a0a0", "#666666", "#cccccc", "#444444", "#888888",
 ]
 
 
