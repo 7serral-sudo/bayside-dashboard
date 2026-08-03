@@ -967,8 +967,40 @@ function chartTheme() {
     grid:   light ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)',
     tick:   light ? '#6B6A66' : '#8A8A92',   /* both ≥ 4.5:1 */
     tooltipBg: light ? '#1D1C1A' : '#242428',
-    barLy:  light ? '#C9C7C2' : '#4A4A52'
+    barLy:  light ? '#C9C7C2' : '#4A4A52',
+    good:    css('--good') || '#3FCF6E',
+    bad:     css('--bad') || '#F0564A',
+    goodDim: css('--good-dim') || 'rgba(63,207,110,0.14)',
+    badDim:  css('--bad-dim') || 'rgba(240,86,74,0.14)'
   };
+}
+/* Colour a YoY line by whether this-year is ahead of or behind last-year at
+   each point — green when ahead, red when behind, neutral when either side
+   of the comparison is missing. */
+function yoySegmentColor(ctx, cy, ly, t, dim) {
+  var i = ctx.p1DataIndex;
+  var c = cy[i], l = ly[i];
+  if (c == null || l == null) return dim ? t.fill : t.line;
+  return c >= l ? (dim ? t.goodDim : t.good) : (dim ? t.badDim : t.bad);
+}
+function yoyLineDataset(t, label, cy, ly) {
+  return {
+    label: label, data: cy, borderColor: t.line, borderWidth: 2,
+    backgroundColor: t.fill, fill: true, tension: 0.4,
+    pointRadius: 0, pointHoverRadius: 5,
+    pointHoverBackgroundColor: t.line, pointHoverBorderColor: t.line, spanGaps: false,
+    segment: {
+      borderColor: function (ctx) { return yoySegmentColor(ctx, cy, ly, t, false); },
+      backgroundColor: function (ctx) { return yoySegmentColor(ctx, cy, ly, t, true); }
+    }
+  };
+}
+function yoyBarColors(cy, ly, t) {
+  return cy.map(function (v, i) {
+    var l = ly[i];
+    if (v == null || l == null) return t.line;
+    return v >= l ? t.good : t.bad;
+  });
 }
 function baseOptions(t) {
   return {
@@ -1037,21 +1069,21 @@ function buildCharts() {
   occOpts.scales.y.min = 0;
   occOpts.scales.y.ticks.callback = function (v) { return v + '%'; };
   make('occChart', { type: 'line',
-    data: { labels: occ.labels, datasets: [lineDataset(t, year, occ.cy, true), lineDataset(t, lastYear, occ.ly, false)] },
+    data: { labels: occ.labels, datasets: [yoyLineDataset(t, year, occ.cy, occ.ly), lineDataset(t, lastYear, occ.ly, false)] },
     options: occOpts });
 
   var adrOpts = baseOptions(t);
   adrOpts.plugins.tooltip.callbacks = withDelta(function (v) { return '$' + v.toFixed(2); });
   adrOpts.scales.y.ticks.callback = function (v) { return '$' + v; };
   make('adrChart', { type: 'line',
-    data: { labels: adr.labels, datasets: [lineDataset(t, year, adr.cy, true), lineDataset(t, lastYear, adr.ly, false)] },
+    data: { labels: adr.labels, datasets: [yoyLineDataset(t, year, adr.cy, adr.ly), lineDataset(t, lastYear, adr.ly, false)] },
     options: adrOpts });
 
   var ciOpts = baseOptions(t);
   ciOpts.plugins.legend.labels.pointStyle = 'rect';
   make('ciChart', { type: 'bar',
     data: { labels: ci.labels, datasets: [
-      { label: year, data: ci.cy, backgroundColor: t.line, borderRadius: 4, borderWidth: 0 },
+      { label: year, data: ci.cy, backgroundColor: yoyBarColors(ci.cy, ci.ly, t), borderRadius: 4, borderWidth: 0 },
       { label: lastYear, data: ci.ly, backgroundColor: t.barLy, borderRadius: 4, borderWidth: 0 } ] },
     options: ciOpts });
 
