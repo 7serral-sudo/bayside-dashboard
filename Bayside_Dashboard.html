@@ -227,10 +227,12 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
    LEDE — the editorial summary
    ============================================================ */
 .lede { padding: var(--s8) 0 var(--s7); }
+.lede-logo { height: 44px; width: auto; margin-bottom: var(--s5); display: block; }
+[data-theme="light"] .lede-logo { filter: invert(1); }
 .asof {
   display: inline-flex; align-items: center; gap: 7px;
   font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.03em;
-  color: var(--n5); margin-bottom: var(--s5);
+  color: var(--n5); margin-top: var(--s5);
   padding: 5px 12px 5px 10px;
   border: 1px solid var(--line); border-radius: 999px;
   background: var(--n2);
@@ -458,12 +460,13 @@ footer p { margin: 0; font-size: var(--t-sm); color: var(--n5); text-align: cent
 
   <!-- ═══════════ LEDE ═══════════ -->
   <div class="wrap lede">
-    <p class="asof"><span class="dot" aria-hidden="true"></span><span id="asof-text">Bayside House Dashboard · Week 31 of 52 · Year-to-date data through 29 Jul 2026</span></p>
+    <img src="/bayside-logo.png" alt="Bayside House" class="lede-logo">
     <h1>The state of the house.</h1>
     <p class="story" id="story-line">
       <!-- Composed by JS from the live tokens below: the occupancy-up / rate-down tension in one sentence. -->
       Loading summary…
     </p>
+    <p class="asof"><span class="dot" aria-hidden="true"></span><span id="asof-text">Bayside House Dashboard · Week 31 of 52 · Year-to-date data through 29 Jul 2026</span></p>
 
     <div class="hero-strip" role="group" aria-label="Headline year-to-date figures">
       <div class="hero-stat" data-trend="up">
