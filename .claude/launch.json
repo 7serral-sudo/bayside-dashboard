@@ -1,0 +1,47 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nest-site",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "nest-site", "run", "dev"],
+      "port": 3001,
+      "env": {
+        "PORT": "3001"
+      }
+    },
+    {
+      "name": "bayside-guide",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "bayside-landing", "run", "dev", "--", "-p", "3002"],
+      "port": 3002,
+      "env": {
+        "PORT": "3002"
+      }
+    }
+    ,{
+      "name": "performance-report",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["report-server.py", "3003"],
+      "port": 3003
+    }
+    ,{
+      "name": "jack-portfolio",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "jack-portfolio", "run", "dev", "--", "--port", "5174"],
+      "port": 5174
+    }
+    ,{
+      "name": "viktor-oddy",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "viktor-oddy", "run", "dev", "--", "--port", "5175"],
+      "port": 5175
+    }
+    ,{
+      "name": "hero-landing",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8080", "--directory", "."],
+      "port": 8080
+    }
+  ]
+}
