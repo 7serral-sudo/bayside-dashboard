@@ -268,21 +268,18 @@ def fetch_website_analytics(service, sheet_id):
     users = sum(_fnum(r, 2) for r in month_rows)
     pageviews = sum(_fnum(r, 3) for r in month_rows)
 
-    # Previous calendar month, for a "vs last month" comparison -- there's
-    # not yet a full prior year of GA4 data in this sheet, so month-over-
-    # month is the closest honest comparison available today.
+    # Same calendar month last year, for a "vs Jul 2025" YoY comparison
+    # (2025 GA4 data was backfilled into this tab -- see backfill_web_analytics_2025.py).
     prev_sessions = prev_users = prev_pageviews = None
     prev_month_label = None
     if target_month:
-        pm, py = int(target_month) - 1, int(target_year)
-        if pm == 0:
-            pm, py = 12, py - 1
-        prev_rows = [r for r in rows if _date_str(r[0]).split("/")[1:] == [f"{pm:02d}", str(py)]]
-        if prev_rows:
-            prev_sessions = sum(_fnum(r, 1) for r in prev_rows)
-            prev_users = sum(_fnum(r, 2) for r in prev_rows)
-            prev_pageviews = sum(_fnum(r, 3) for r in prev_rows)
-            prev_month_label = sheets_client.MONTHS[pm - 1]
+        ly_year = int(target_year) - 1
+        ly_rows = [r for r in rows if _date_str(r[0]).split("/")[1:] == [target_month, str(ly_year)]]
+        if ly_rows:
+            prev_sessions = sum(_fnum(r, 1) for r in ly_rows)
+            prev_users = sum(_fnum(r, 2) for r in ly_rows)
+            prev_pageviews = sum(_fnum(r, 3) for r in ly_rows)
+            prev_month_label = f"{sheets_client.MONTHS[int(target_month) - 1]} {ly_year}"
 
     channels = {ch: 0.0 for ch in sheets_client.WEB_CHANNELS}
     for r in month_rows:
