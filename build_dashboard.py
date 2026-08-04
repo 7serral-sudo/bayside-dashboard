@@ -80,9 +80,15 @@ SOURCE_DISPLAY = {
     "Website":     "Website",
     "Walk + Ph":   "Walk-in & Phone",
 }
-SOURCE_COLORS = [
-    "#ffffff", "#a0a0a0", "#666666", "#cccccc", "#444444", "#888888",
-]
+SOURCE_COLORS = {
+    "Booking.com": "#3B82F6",  # blue
+    "HW":          "#F97316",  # orange (Hostelworld)
+    "Walk + Ph":   "#3FCF6E",  # green (Walk-in & Phone)
+    "Website":     "#EAB308",  # yellow
+    "Expedia":     "#A855F7",  # purple
+    "Agoda":       "#94A3B8",  # fallback grey for any other channel
+}
+SOURCE_COLOR_FALLBACK = "#94A3B8"
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +430,7 @@ def build_channels_chart_data(perf_weeks, current_year, n_months=6):
 
     datasets = []
     for i, src in enumerate(top_sources):
-        color = SOURCE_COLORS[i % len(SOURCE_COLORS)]
+        color = SOURCE_COLORS.get(src, SOURCE_COLOR_FALLBACK)
         data = [int(per_month_totals[m].get(src, 0)) for m in months_with_data]
         datasets.append({
             "label": SOURCE_DISPLAY.get(src, src),
