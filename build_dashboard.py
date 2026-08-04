@@ -14,6 +14,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import sheets_client
+# Single source of truth for room-type names, bed counts and the private/dorm
+# split -- the same constants build_room_type_adr.py uses to lay the sheet out,
+# so the dashboard can't drift from the columns it's reading.
+from build_room_type_adr import ROOM_TYPES, ROOM_TYPE_ORDER
 
 def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
     """Return a coloured HTML string for a KPI sub-label comparison."""
@@ -227,10 +231,31 @@ def fetch_platform_reviews(service, sheet_id):
     }
 
 
+# Room Type ADR column layout, as written by build_room_type_adr.py:
+#   A Month | B,C Private Rooms summary | D,E Pods summary
+#   | (Nights, ADR) per type in ROOM_TYPE_ORDER | All Rooms total.
+ROOM_TYPE_DETAIL_START_COL = 5
+
+
+def _room_type_detail(row):
+    """Per-room-type nights and ADR from one Room Type ADR row, in sheet order."""
+    types = []
+    for idx, rt_id in enumerate(ROOM_TYPE_ORDER):
+        name, beds, section = ROOM_TYPES[rt_id]
+        col = ROOM_TYPE_DETAIL_START_COL + idx * 2
+        nights, adr = _fnum(row, col), _fnum(row, col + 1)
+        if not nights and not adr:
+            continue          # room type not sold yet this year -- skip the tile
+        types.append({"name": name, "beds": beds, "section": section,
+                      "nights": nights, "adr": adr})
+    return types
+
+
 def fetch_room_type_adr(service, sheet_id):
-    """Returns dict with YTD ADR for private rooms and pods, or None if not found."""
+    """Returns dict with YTD ADR for private rooms, pods and each individual
+    room type, or None if not found."""
     try:
-        rows = _values(service, sheet_id, "Room Type ADR!A3:E1000")
+        rows = _values(service, sheet_id, "Room Type ADR!A3:U1000")
         if not rows:
             return None
 
@@ -245,6 +270,7 @@ def fetch_room_type_adr(service, sheet_id):
                 return {
                     "private_adr": _fnum(r, 2),
                     "pods_adr": _fnum(r, 4),
+                    "types": _room_type_detail(r),
                     "monthly": monthly_data,
                 }
             # Add monthly data
@@ -559,6 +585,38 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
     return "\n".join(cards)
 
 
+def build_room_type_cards_html(types):
+    """Per-room-type YTD ADR tiles, split into private rooms and pods so the
+    breakdown reads as the two headline cards above it, itemised."""
+    if not types:
+        return ""
+
+    groups = []
+    for label, section in (("Private rooms", "private"), ("Pods", "dorm")):
+        members = [t for t in types if t["section"] == section]
+        if not members:
+            continue
+        tiles = "\n".join(
+            f'''          <div class="room-card">
+            <div class="room-name">{t["name"]}</div>
+            <div class="room-adr num">{fmt_money(t["adr"])}</div>
+            <div class="room-sub">{int(t["nights"]):,} nights · {t["beds"]} {"beds" if t["beds"] > 1 else "room"}</div>
+          </div>'''
+            for t in members
+        )
+        groups.append(f'''      <div>
+        <h3 class="room-group-label">{label}</h3>
+        <div class="room-grid">
+{tiles}
+        </div>
+      </div>''')
+
+    if not groups:
+        return ""
+    inner = "\n".join(groups)
+    return f'    <div class="room-types">\n{inner}\n    </div>'
+
+
 # ---------------------------------------------------------------------------
 # Main build
 # ---------------------------------------------------------------------------
@@ -690,6 +748,7 @@ def build(sheet_id: str | None = None, log=print):
     if room_type_adr:
         private_adr = fmt_money(room_type_adr["private_adr"])
         pods_adr = fmt_money(room_type_adr["pods_adr"])
+        room_type_cards_html = build_room_type_cards_html(room_type_adr.get("types", []))
         # Build chart data for room type ADR trends
         room_adr_monthly = room_type_adr.get("monthly", {})
         room_adr_labels = room_adr_monthly.get("months", [])
@@ -698,6 +757,7 @@ def build(sheet_id: str | None = None, log=print):
     else:
         private_adr = 'n/a'
         pods_adr = 'n/a'
+        room_type_cards_html = ""
         room_adr_labels = []
         room_adr_private_data = []
         room_adr_pods_data = []
@@ -825,6 +885,7 @@ def build(sheet_id: str | None = None, log=print):
         "__ADR_LASTYEAR__":        adr_lastyear,
         "__PRIVATE_ROOM_ADR_YTD__": private_adr,
         "__PODS_ADR_YTD__":        pods_adr,
+        "__ROOM_TYPE_CARDS_HTML__": room_type_cards_html,
         "__YTD_REVENUE__":         fmt_money_k(ytd_revenue),
         "__YTD_REVENUE_WEEK_LABEL__": ytd_revenue_label,
         "__MTD_REVENUE__":         fmt_money_k(mtd_revenue),

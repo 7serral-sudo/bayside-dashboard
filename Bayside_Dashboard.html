@@ -113,7 +113,7 @@ body::after {
 .wrap { max-width: var(--measure); margin-inline: auto; padding-inline: clamp(16px, 4vw, 32px); }
 
 /* numerals never jitter */
-.num, .kpi-value, .monthly-value, td, .rating-value, .stat-strong {
+.num, .kpi-value, .monthly-value, .room-adr, td, .rating-value, .stat-strong {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
 }
@@ -340,6 +340,25 @@ section.block + section.block { border-top: 1px solid var(--line); }
 .monthly-value { font-size: var(--t-lg); font-weight: 800; letter-spacing: -0.01em; color: var(--n8); }
 .monthly-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
 
+/* ---------- room type breakdown ---------- */
+.room-types { margin-top: var(--s5); display: grid; gap: var(--s5); }
+.room-group-label {
+  font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--n5); margin-bottom: var(--s3);
+}
+.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: var(--s3); }
+.room-card {
+  background: var(--n2); border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 1px 0 var(--line-inner);
+  padding: var(--s4);
+  transition: border-color 90ms ease;
+}
+.room-card:hover { border-color: var(--n4); }
+.room-name { font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--n5); margin-bottom: var(--s2); }
+.room-adr { font-size: var(--t-lg); font-weight: 800; letter-spacing: -0.01em; color: var(--n8); }
+.room-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
+
 .frag-list { font-size: var(--t-sm); color: var(--n6); }
 .frag-list > div { padding-block: 6px; }
 .frag-list > div + div { border-top: 1px solid var(--line-inner); }
@@ -399,7 +418,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
 @media print {
   body { background: #fff; color: #111; }
   body::after, header, #login-screen, .theme-toggle { display: none !important; }
-  .kpi-card, .chart-card, .review-card, .monthly-card, .table-shell {
+  .kpi-card, .chart-card, .review-card, .monthly-card, .room-card, .table-shell {
     box-shadow: none; border: 1px solid #ddd; break-inside: avoid;
   }
   section.block { padding-block: 16px; }
@@ -555,6 +574,53 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
         <div class="kpi-label">Pod ADR</div>
         <div class="kpi-value num">$34.03</div>
         <div class="kpi-sub">Across 78 pods</div>
+      </div>
+    </div>
+    <div class="room-types">
+      <div>
+        <h3 class="room-group-label">Private rooms</h3>
+        <div class="room-grid">
+          <div class="room-card">
+            <div class="room-name">Deluxe Queen</div>
+            <div class="room-adr num">$77.10</div>
+            <div class="room-sub">679 nights · 4 beds</div>
+          </div>
+          <div class="room-card">
+            <div class="room-name">Queen with Ensuite</div>
+            <div class="room-adr num">$56.53</div>
+            <div class="room-sub">213 nights · 1 room</div>
+          </div>
+          <div class="room-card">
+            <div class="room-name">Private (Grd Floor)</div>
+            <div class="room-adr num">$58.64</div>
+            <div class="room-sub">22 nights · 1 room</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 class="room-group-label">Pods</h3>
+        <div class="room-grid">
+          <div class="room-card">
+            <div class="room-name">4 Bed Dorm</div>
+            <div class="room-adr num">$34.52</div>
+            <div class="room-sub">1,885 nights · 8 beds</div>
+          </div>
+          <div class="room-card">
+            <div class="room-name">6 Bed Dorm</div>
+            <div class="room-adr num">$33.76</div>
+            <div class="room-sub">7,644 nights · 42 beds</div>
+          </div>
+          <div class="room-card">
+            <div class="room-name">8 Bed Dorm</div>
+            <div class="room-adr num">$34.28</div>
+            <div class="room-sub">2,646 nights · 16 beds</div>
+          </div>
+          <div class="room-card">
+            <div class="room-name">Female Dorm</div>
+            <div class="room-adr num">$34.38</div>
+            <div class="room-sub">1,401 nights · 12 beds</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -833,6 +899,18 @@ window.DEV_SAMPLES = {
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",
     MTD_REVENUE: "$58.9k", MTD_YOY_LABEL: "vs Jul 2025: $36.6k (+61%)", TREND_REV_MONTH: "up",
     PRIVATE_ROOM_ADR_YTD: "$75.76", PODS_ADR_YTD: "$34.47",
+    ROOM_TYPE_CARDS_HTML: (function () {
+      var groups = [
+        ["Private rooms", ["Deluxe Queen|$77.10|679 nights · 4 beds","Queen with Ensuite|$56.53|213 nights · 1 room","Private (Grd Floor)|$58.64|22 nights · 1 room"]],
+        ["Pods", ["4 Bed Dorm|$34.52|1,885 nights · 8 beds","6 Bed Dorm|$33.76|7,644 nights · 42 beds","8 Bed Dorm|$34.28|2,646 nights · 16 beds","Female Dorm|$34.38|1,401 nights · 12 beds"]]
+      ];
+      return '<div class="room-types">' + groups.map(function (g) {
+        return '<div><h3 class="room-group-label">' + g[0] + '</h3><div class="room-grid">' + g[1].map(function (s) {
+          var p = s.split("|");
+          return '<div class="room-card"><div class="room-name">' + p[0] + '</div><div class="room-adr num">' + p[1] + '</div><div class="room-sub">' + p[2] + '</div></div>';
+        }).join("") + '</div></div>';
+      }).join("") + '</div>';
+    })(),
     WEB_ANALYTICS_TITLE: "Website — July 2026", WEB_SESSIONS: "1,606", WEB_USERS: "1,396",
     WEB_PAGEVIEWS: "2,486", WEB_AVG_PER_SESSION: "1.5",
     WEB_TOP_SOURCE: "Organic", WEB_TOP_SOURCE_SUB: "728 sessions (45%)",
