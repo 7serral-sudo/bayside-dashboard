@@ -268,6 +268,22 @@ def fetch_website_analytics(service, sheet_id):
     users = sum(_fnum(r, 2) for r in month_rows)
     pageviews = sum(_fnum(r, 3) for r in month_rows)
 
+    # Previous calendar month, for a "vs last month" comparison -- there's
+    # not yet a full prior year of GA4 data in this sheet, so month-over-
+    # month is the closest honest comparison available today.
+    prev_sessions = prev_users = prev_pageviews = None
+    prev_month_label = None
+    if target_month:
+        pm, py = int(target_month) - 1, int(target_year)
+        if pm == 0:
+            pm, py = 12, py - 1
+        prev_rows = [r for r in rows if _date_str(r[0]).split("/")[1:] == [f"{pm:02d}", str(py)]]
+        if prev_rows:
+            prev_sessions = sum(_fnum(r, 1) for r in prev_rows)
+            prev_users = sum(_fnum(r, 2) for r in prev_rows)
+            prev_pageviews = sum(_fnum(r, 3) for r in prev_rows)
+            prev_month_label = sheets_client.MONTHS[pm - 1]
+
     channels = {ch: 0.0 for ch in sheets_client.WEB_CHANNELS}
     for r in month_rows:
         for i, ch in enumerate(sheets_client.WEB_CHANNELS):
@@ -296,6 +312,10 @@ def fetch_website_analytics(service, sheet_id):
         "channels":   channels,
         "countries":  countries,
         "devices":    devices,
+        "prev_month_label": prev_month_label,
+        "prev_sessions":    prev_sessions,
+        "prev_users":       prev_users,
+        "prev_pageviews":   prev_pageviews,
     }
 
 
@@ -665,6 +685,10 @@ def build(sheet_id: str | None = None, log=print):
         web_device_html = build_web_device_html(web["devices"])
         web_top_source_sub = f'{int(top_channel[1])} sessions ({top_channel_pct:.0f}%)'
         web_top_country_sub = f'{int(top_country[1])} sessions'
+        web_sessions_cmp = _cmp_html(f'vs {web["prev_month_label"]}', web_sessions, web["prev_sessions"], fmt_fn=lambda v: f'{int(v):,}')
+        web_pageviews_cmp = _cmp_html(f'vs {web["prev_month_label"]}', web_pageviews, web["prev_pageviews"], fmt_fn=lambda v: f'{int(v):,}')
+        trend_web_sessions = _trend(web_sessions, web["prev_sessions"])
+        trend_web_pageviews = _trend(web_pageviews, web["prev_pageviews"])
     else:
         web_title = "Website Analytics"
         web_sessions = web_users = web_pageviews = 0
@@ -676,6 +700,10 @@ def build(sheet_id: str | None = None, log=print):
         web_device_html = build_web_device_html({})
         web_top_source_sub = "No data yet"
         web_top_country_sub = "No data yet"
+        web_sessions_cmp = "No prior month yet"
+        web_pageviews_cmp = "No prior month yet"
+        trend_web_sessions = "neutral"
+        trend_web_pageviews = "neutral"
 
     # -- Chart data -----------------------------------------------------------
     occ_chart_labels = [fmt_date_short(w["date"]) for w in occ_weeks]
@@ -770,6 +798,10 @@ def build(sheet_id: str | None = None, log=print):
         "__WEB_USERS__":           f"{web_users:,}",
         "__WEB_PAGEVIEWS__":       f"{web_pageviews:,}",
         "__WEB_AVG_PER_SESSION__": f"{avg_per_session:.1f}",
+        "__WEB_SESSIONS_CMP__":    web_sessions_cmp,
+        "__WEB_PAGEVIEWS_CMP__":   web_pageviews_cmp,
+        "__TREND_WEB_SESSIONS__":  trend_web_sessions,
+        "__TREND_WEB_PAGEVIEWS__": trend_web_pageviews,
         "__WEB_TOP_SOURCE__":      top_channel[0],
         "__WEB_TOP_SOURCE_SUB__":  web_top_source_sub,
         "__WEB_TOP_COUNTRY__":     top_country[0],
