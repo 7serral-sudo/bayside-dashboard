@@ -374,7 +374,9 @@ table.edm td { padding: var(--s3) var(--s4); text-align: right; color: var(--n6)
 table.edm tbody tr + tr td { border-top: 1px solid var(--line-inner); }
 table.edm td strong { color: var(--n7); font-weight: 600; }
 table.edm .date { font-size: var(--t-xs); color: var(--n5); }
-.pos { color: var(--good); } .neg { color: var(--bad); } .mid { color: var(--warn); }
+table.edm td.pos, .pos { color: var(--good); font-weight: 600; }
+table.edm td.neg, .neg { color: var(--bad); font-weight: 600; }
+table.edm td.mid, .mid { color: var(--warn); font-weight: 600; }
 
 /* ---------- footer ---------- */
 footer { border-top: 1px solid var(--line); margin-top: var(--s7); padding-block: var(--s6); }
