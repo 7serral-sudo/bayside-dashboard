@@ -40,6 +40,22 @@ def _trend(current, prev):
         return 'down'
     return 'neutral'
 
+def _web_delta_html(current, prev):
+    """Small inline YoY delta badge used in the Website Analytics breakdown lists."""
+    if prev is None or prev == 0:
+        return ''
+    green, red = '#3FCF6E', '#F0564A'
+    diff = current - prev
+    pct = diff / prev * 100
+    if diff > 0:
+        color, arrow = green, '↑'
+    elif diff < 0:
+        color, arrow = red, '↓'
+    else:
+        return ' <span style="color:#6b7280;font-size:11px">(=)</span>'
+    return f' <span style="color:{color};font-size:11px">({arrow}{abs(pct):.0f}%)</span>'
+
+
 def _color_yoy(text):
     """Wrap the (+X%) or (-X%) part of a YoY label in a coloured span."""
     if '(+' in text:
@@ -272,6 +288,7 @@ def fetch_website_analytics(service, sheet_id):
     # (2025 GA4 data was backfilled into this tab -- see backfill_web_analytics_2025.py).
     prev_sessions = prev_users = prev_pageviews = None
     prev_month_label = None
+    ly_rows: list = []
     if target_month:
         ly_year = int(target_year) - 1
         ly_rows = [r for r in rows if _date_str(r[0]).split("/")[1:] == [target_month, str(ly_year)]]
@@ -300,6 +317,21 @@ def fetch_website_analytics(service, sheet_id):
         for i, dv in enumerate(sheets_client.DEVICES):
             devices[dv] += _fnum(r, sheets_client.WEB_DEV_START + i)
 
+    # Same-month-last-year breakdowns, for YoY deltas on each channel/country/device row.
+    ly_channels = {ch: 0.0 for ch in sheets_client.WEB_CHANNELS}
+    ly_country_totals: dict[str, float] = {}
+    ly_devices = {dv: 0.0 for dv in sheets_client.DEVICES}
+    for r in ly_rows:
+        for i, ch in enumerate(sheets_client.WEB_CHANNELS):
+            ly_channels[ch] += _fnum(r, sheets_client.WEB_CH_START + i)
+        for i in range(sheets_client.TOP_N_COUNTRIES):
+            c = sheets_client.WEB_CTR_START + i * 2
+            name = _fstr(r, c)
+            if name:
+                ly_country_totals[name] = ly_country_totals.get(name, 0.0) + _fnum(r, c + 1)
+        for i, dv in enumerate(sheets_client.DEVICES):
+            ly_devices[dv] += _fnum(r, sheets_client.WEB_DEV_START + i)
+
     return {
         "month_label": f"{sheets_client.MONTHS[int(target_month) - 1]} {target_year}" if target_month else last_date,
         "weeks_included": len(month_rows),
@@ -313,6 +345,9 @@ def fetch_website_analytics(service, sheet_id):
         "prev_sessions":    prev_sessions,
         "prev_users":       prev_users,
         "prev_pageviews":   prev_pageviews,
+        "ly_channels":      ly_channels if ly_rows else None,
+        "ly_countries":     ly_country_totals if ly_rows else None,
+        "ly_devices":       ly_devices if ly_rows else None,
     }
 
 
@@ -374,39 +409,42 @@ def fmt_date_human(date_str: str) -> str:
 # Build dynamic HTML blocks
 # ---------------------------------------------------------------------------
 
-def build_web_channels_html(channels: dict):
+def build_web_channels_html(channels: dict, ly_channels: dict | None = None):
     if not channels or not any(channels.values()):
         return '          <div>No data yet</div>'
     rows = []
     for ch, sessions in channels.items():
+        delta = _web_delta_html(sessions, ly_channels.get(ch) if ly_channels else None)
         rows.append(
-            f'          <div>{ch}: <strong style="color:#3FCF6E">{int(sessions)}</strong></div>'
+            f'          <div>{ch}: <strong style="color:#3FCF6E">{int(sessions)}</strong>{delta}</div>'
         )
     return "\n".join(rows)
 
 
-def build_web_countries_html(countries: list):
+def build_web_countries_html(countries: list, ly_countries: dict | None = None):
     if not countries:
         return '          <div>No data yet</div>'
     rows = []
     for i, (name, sessions) in enumerate(countries):
+        delta = _web_delta_html(sessions, ly_countries.get(name) if ly_countries else None)
         rows.append(
             f'          <div style="display:flex;justify-content:space-between">'
             f'<span>{i+1}. {name}</span> '
-            f'<strong style="color:#3FCF6E">{int(sessions)}</strong></div>'
+            f'<span><strong style="color:#3FCF6E">{int(sessions)}</strong>{delta}</span></div>'
         )
     return "\n".join(rows)
 
 
-def build_web_device_html(devices: dict):
+def build_web_device_html(devices: dict, ly_devices: dict | None = None):
     if not devices or not any(devices.values()):
         return '          <div>No data yet</div>'
     total = sum(devices.values()) or 1
     rows = []
     for dv, count in devices.items():
         pct = count / total * 100
+        delta = _web_delta_html(count, ly_devices.get(dv) if ly_devices else None)
         rows.append(
-            f'          <div>{dv}: <strong style="color:#3FCF6E">{int(count)} ({pct:.0f}%)</strong></div>'
+            f'          <div>{dv}: <strong style="color:#3FCF6E">{int(count)} ({pct:.0f}%)</strong>{delta}</div>'
         )
     return "\n".join(rows)
 
@@ -677,11 +715,13 @@ def build(sheet_id: str | None = None, log=print):
         top_channel = max(web["channels"].items(), key=lambda kv: kv[1], default=("--", 0))
         top_channel_pct = (top_channel[1] / web_sessions * 100) if web_sessions else 0
         top_country = web["countries"][0] if web["countries"] else ("--", 0)
-        web_channels_html = build_web_channels_html(web["channels"])
-        web_countries_html = build_web_countries_html(web["countries"])
-        web_device_html = build_web_device_html(web["devices"])
-        web_top_source_sub = f'{int(top_channel[1])} sessions ({top_channel_pct:.0f}%)'
-        web_top_country_sub = f'{int(top_country[1])} sessions'
+        ly_channels_map = web.get("ly_channels") or {}
+        ly_countries_map = web.get("ly_countries") or {}
+        web_channels_html = build_web_channels_html(web["channels"], web.get("ly_channels"))
+        web_countries_html = build_web_countries_html(web["countries"], web.get("ly_countries"))
+        web_device_html = build_web_device_html(web["devices"], web.get("ly_devices"))
+        web_top_source_sub = f'{int(top_channel[1])} sessions ({top_channel_pct:.0f}%){_web_delta_html(top_channel[1], ly_channels_map.get(top_channel[0]))}'
+        web_top_country_sub = f'{int(top_country[1])} sessions{_web_delta_html(top_country[1], ly_countries_map.get(top_country[0]))}'
         web_sessions_cmp = _cmp_html(f'vs {web["prev_month_label"]}', web_sessions, web["prev_sessions"], fmt_fn=lambda v: f'{int(v):,}')
         web_pageviews_cmp = _cmp_html(f'vs {web["prev_month_label"]}', web_pageviews, web["prev_pageviews"], fmt_fn=lambda v: f'{int(v):,}')
         trend_web_sessions = _trend(web_sessions, web["prev_sessions"])
