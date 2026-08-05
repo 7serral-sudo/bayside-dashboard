@@ -357,7 +357,9 @@ section.block + section.block { border-top: 1px solid var(--line); }
 .room-card:hover { border-color: var(--n4); }
 .room-name { font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--n5); margin-bottom: var(--s2); }
 .room-adr { font-size: var(--t-lg); font-weight: 800; letter-spacing: -0.01em; color: var(--n8); }
+.room-occ { font-size: var(--t-sm); font-weight: 600; color: var(--warn); margin-top: var(--s1); }
 .room-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
+.section-note { margin: var(--s5) 0 0; font-size: var(--t-xs); color: var(--n5); }
 
 .frag-list { font-size: var(--t-sm); color: var(--n6); }
 .frag-list > div { padding-block: 6px; }
@@ -583,16 +585,19 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
           <div class="room-card">
             <div class="room-name">Deluxe Queen</div>
             <div class="room-adr num">$77.10</div>
+            <div class="room-occ num">78.6% occupancy</div>
             <div class="room-sub">679 nights · 4 beds</div>
           </div>
           <div class="room-card">
             <div class="room-name">Queen with Ensuite</div>
             <div class="room-adr num">$58.44</div>
+            <div class="room-occ num">98.6% occupancy</div>
             <div class="room-sub">213 nights · 1 room</div>
           </div>
           <div class="room-card">
             <div class="room-name">Private (Grd Floor)</div>
             <div class="room-adr num">$45.45</div>
+            <div class="room-occ num">10.2% occupancy</div>
             <div class="room-sub">22 nights · 1 room</div>
           </div>
         </div>
@@ -603,26 +608,31 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
           <div class="room-card">
             <div class="room-name">4 Bed Dorm</div>
             <div class="room-adr num">$34.52</div>
+            <div class="room-occ num">109.1% occupancy</div>
             <div class="room-sub">1,885 nights · 8 beds</div>
           </div>
           <div class="room-card">
             <div class="room-name">6 Bed Dorm</div>
             <div class="room-adr num">$33.80</div>
+            <div class="room-occ num">84.3% occupancy</div>
             <div class="room-sub">7,644 nights · 42 beds</div>
           </div>
           <div class="room-card">
             <div class="room-name">8 Bed Dorm</div>
             <div class="room-adr num">$34.28</div>
+            <div class="room-occ num">76.6% occupancy</div>
             <div class="room-sub">2,646 nights · 16 beds</div>
           </div>
           <div class="room-card">
             <div class="room-name">Female Dorm</div>
             <div class="room-adr num">$34.38</div>
+            <div class="room-occ num">54.1% occupancy</div>
             <div class="room-sub">1,401 nights · 12 beds</div>
           </div>
         </div>
       </div>
     </div>
+    <p class="section-note">All rates exclude GST, matching Cloudbeds Data Insights. Add 10% for tax-inclusive rates. Occupancy % is calculated against each room type's current bed count — some 2026 figures may be over- or understated due to mid-year room reconfiguration.</p>
   </section>
 
   <!-- ═══════════ TRENDS ═══════════ -->

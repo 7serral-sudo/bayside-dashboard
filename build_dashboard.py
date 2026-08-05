@@ -585,6 +585,15 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
     return "\n".join(cards)
 
 
+def _add_room_type_occupancy(types, week_end_date, current_year):
+    """Adds a YTD occupancy % per room type: nights sold / (beds x days elapsed
+    this year). Mutates each type dict in place."""
+    days_elapsed = (week_end_date - date(current_year, 1, 1)).days + 1
+    for t in types:
+        avail = t["beds"] * days_elapsed
+        t["occ"] = (t["nights"] / avail * 100) if avail else 0.0
+
+
 def build_room_type_cards_html(types):
     """Per-room-type YTD ADR tiles, split into private rooms and pods so the
     breakdown reads as the two headline cards above it, itemised."""
@@ -600,6 +609,7 @@ def build_room_type_cards_html(types):
             f'''          <div class="room-card">
             <div class="room-name">{t["name"]}</div>
             <div class="room-adr num">{fmt_money(t["adr"])}</div>
+            <div class="room-occ num">{t.get("occ", 0):.1f}% occupancy</div>
             <div class="room-sub">{int(t["nights"]):,} nights · {t["beds"]} {"beds" if t["beds"] > 1 else "room"}</div>
           </div>'''
             for t in members
@@ -646,6 +656,9 @@ def build(sheet_id: str | None = None, log=print):
     week_end_str = latest_occ["date"]
     week_end_date = datetime.strptime(week_end_str, "%d/%m/%Y").date()
     current_year = int(week_end_str.split("/")[-1])
+
+    if room_type_adr and room_type_adr.get("types"):
+        _add_room_type_occupancy(room_type_adr["types"], week_end_date, current_year)
 
     occ_monthly = {w["month"]: w["month_occ"] for w in occ_weeks if w["month"] and w["month_occ"] is not None}
     ref_2025 = load_2025_reference()
