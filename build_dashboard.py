@@ -83,14 +83,9 @@ DATA_2025_PATH = os.path.join(SCRIPT_DIR, "data_2025_reference.json")
 # contemporaneous bed count).
 LY_N_BEDS = 83
 
-# Review *counts* aren't tracked anywhere in the sheet (only ratings are).
-# Update these by hand when they change; ratings below always come live from the sheet.
-REVIEW_COUNTS = {
-    "google": 272,
-    "booking": 511,
-    "hostelworld": 82,
-    "expedia": 55,
-}
+# Platform order for the "Platform reviews" row, matching the sheet's column
+# order. Ratings and counts both come live from the Platform Reviews tab.
+PLATFORM_ORDER = ("google", "booking", "hostelworld", "expedia")
 
 SOURCE_DISPLAY = {
     "Booking.com": "Booking.com",
@@ -218,17 +213,39 @@ def fetch_revenue(service, sheet_id):
     return out
 
 
+def _review_rating(reviews, platform):
+    """Rating for the tile, or an em dash when it has never been recorded."""
+    value = reviews[platform]["rating"]
+    return "—" if value is None else f"{value:.1f}"
+
+
+def _review_count(reviews, platform):
+    value = reviews[platform]["count"]
+    return "—" if value is None else f"{value:,}"
+
+
 def fetch_platform_reviews(service, sheet_id):
-    rows = _values(service, sheet_id, f"{sheets_client.PLAT_TAB}!A2:E2000")
+    """Latest rating and review count per platform.
+
+    Layout is Date | 4 ratings (B-E) | 4 counts (F-I). Any cell can be blank --
+    counts didn't exist on older rows, and a platform whose API is unreachable
+    writes a blank rather than a zero -- so each column carries its last known
+    value forward instead of collapsing to 0.
+    """
+    rows = _values(service, sheet_id, f"{sheets_client.PLAT_TAB}!A2:I2000")
     if not rows:
         return None
-    last = rows[-1]
-    return {
-        "google":      _fnum(last, 1),
-        "booking":     _fnum(last, 2),
-        "hostelworld": _fnum(last, 3),
-        "expedia":     _fnum(last, 4),
-    }
+
+    latest = {p: {"rating": None, "count": None} for p in PLATFORM_ORDER}
+    for row in rows:
+        for idx, platform in enumerate(PLATFORM_ORDER):
+            rating = _fnum(row, 1 + idx, default=None)
+            count = _fnum(row, 5 + idx, default=None)
+            if rating is not None:
+                latest[platform]["rating"] = rating
+            if count is not None:
+                latest[platform]["count"] = int(count)
+    return latest
 
 
 # Room Type ADR column layout, as written by build_room_type_adr.py:
@@ -788,7 +805,12 @@ def build(sheet_id: str | None = None, log=print):
         room_adr_pods_data = []
 
     # -- Reviews ------------------------------------------------------------
-    reviews = reviews or {"google": 0, "booking": 0, "hostelworld": 0, "expedia": 0}
+    reviews = reviews or {}
+    reviews = {p: reviews.get(p) or {"rating": None, "count": None} for p in PLATFORM_ORDER}
+    for platform, vals in reviews.items():
+        if vals["rating"] is None or vals["count"] is None:
+            log(f"  !! Platform reviews: no {platform} "
+                f"{'rating' if vals['rating'] is None else 'count'} in the sheet yet.")
 
     # -- Website analytics ----------------------------------------------------
     if web:
@@ -932,14 +954,14 @@ def build(sheet_id: str | None = None, log=print):
         "__WEB_CHANNELS_HTML__":   web_channels_html,
         "__WEB_COUNTRIES_HTML__":  web_countries_html,
         "__WEB_DEVICE_HTML__":     web_device_html,
-        "__REVIEW_GOOGLE_RATING__":      f'{reviews["google"]:.1f}',
-        "__REVIEW_GOOGLE_COUNT__":       str(REVIEW_COUNTS["google"]),
-        "__REVIEW_BOOKING_RATING__":     f'{reviews["booking"]:.1f}',
-        "__REVIEW_BOOKING_COUNT__":      str(REVIEW_COUNTS["booking"]),
-        "__REVIEW_HOSTELWORLD_RATING__": f'{reviews["hostelworld"]:.1f}',
-        "__REVIEW_HOSTELWORLD_COUNT__":  str(REVIEW_COUNTS["hostelworld"]),
-        "__REVIEW_EXPEDIA_RATING__":     f'{reviews["expedia"]:.1f}',
-        "__REVIEW_EXPEDIA_COUNT__":      str(REVIEW_COUNTS["expedia"]),
+        "__REVIEW_GOOGLE_RATING__":      _review_rating(reviews, "google"),
+        "__REVIEW_GOOGLE_COUNT__":       _review_count(reviews, "google"),
+        "__REVIEW_BOOKING_RATING__":     _review_rating(reviews, "booking"),
+        "__REVIEW_BOOKING_COUNT__":      _review_count(reviews, "booking"),
+        "__REVIEW_HOSTELWORLD_RATING__": _review_rating(reviews, "hostelworld"),
+        "__REVIEW_HOSTELWORLD_COUNT__":  _review_count(reviews, "hostelworld"),
+        "__REVIEW_EXPEDIA_RATING__":     _review_rating(reviews, "expedia"),
+        "__REVIEW_EXPEDIA_COUNT__":      _review_count(reviews, "expedia"),
         "__DASHBOARD_YEAR__":      str(current_year),
         "__MONTHLY_CARDS_HTML__":  monthly_cards_html,
         "__FOOTER_TEXT__":         footer_text,
