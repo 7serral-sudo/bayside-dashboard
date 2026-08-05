@@ -22,73 +22,7 @@ from cloudbeds_client import CloudbedsClient
 from ga4_client import GA4Client
 import sheets_client
 import html_report
-
-# ---------------------------------------------------------------------------
-# Room Type ADR tracking (extracted from Cloudbeds API)
-# ---------------------------------------------------------------------------
-
-PRIVATE_ROOM_TYPES = {"Deluxe Queen", "Queen with Ensuite"}
-
-def categorize_room(room_name: str) -> str:
-    """Categorize room as 'private' or 'pods' based on room name."""
-    return "private" if room_name in PRIVATE_ROOM_TYPES else "pods"
-
-def extract_room_type_adr(client: CloudbedsClient, month_start: date, month_end: date) -> dict | None:
-    """
-    Extract room-type ADR data for a specific month from Cloudbeds.
-    Returns: {"private": {"bookings": N, "revenue": X}, "pods": {...}}
-    """
-    try:
-        log(f"  -> Extracting room-type data from Cloudbeds ({month_start} to {month_end})...")
-
-        # Fetch all reservations (check-ins) for the month
-        arrivals = client.get_arrivals(month_start, month_end)
-
-        # Filter by confirmed status and categorize by room type
-        room_type_stats = {"private": {"bookings": 0, "beds": 0}, "pods": {"bookings": 0, "beds": 0}}
-
-        for r in arrivals:
-            status = str(r.get("status", "")).lower()
-            if status in {"cancelled", "canceled", "no_show"}:
-                continue
-
-            room_name = r.get("roomName", "")
-            room_type = categorize_room(room_name)
-
-            try:
-                ci = date.fromisoformat(r["startDate"])
-                co = date.fromisoformat(r["endDate"])
-                nights = max((co - ci).days, 0)
-                adults = int(r.get("adults", 1) or 1)
-                beds_booked = nights * adults
-
-                room_type_stats[room_type]["bookings"] += 1
-                room_type_stats[room_type]["beds"] += beds_booked
-            except (KeyError, ValueError):
-                continue
-
-        # Fetch daily revenue data to distribute by room type
-        rooms_sold = client.get_rooms_sold(month_start, month_end)
-        total_revenue = sum(r.get("revenue", 0.0) for r in rooms_sold)
-        total_beds = sum(r.get("accommodations_booked", 0) for r in rooms_sold)
-
-        # Distribute revenue proportionally by bed-nights booked
-        if total_beds > 0:
-            for room_type in room_type_stats:
-                bed_pct = room_type_stats[room_type]["beds"] / total_beds
-                room_type_stats[room_type]["revenue"] = round(total_revenue * bed_pct, 2)
-        else:
-            for room_type in room_type_stats:
-                room_type_stats[room_type]["revenue"] = 0.0
-
-        log(f"     Private: {room_type_stats['private']['bookings']} bookings, ${room_type_stats['private']['revenue']:,.2f}")
-        log(f"     Pods: {room_type_stats['pods']['bookings']} bookings, ${room_type_stats['pods']['revenue']:,.2f}")
-
-        return room_type_stats
-
-    except Exception as exc:
-        log(f"  WARNING: Room-type extraction failed -- {exc}")
-        return None
+import build_room_type_adr
 
 # ---------------------------------------------------------------------------
 # Source normalisation
@@ -617,45 +551,41 @@ def main():
     else:
         log("  -> GA4_PROPERTY_ID not set -- skipping Google Analytics fetch.")
 
-    # Platform review scores (update these manually or via API)
-    # Scales: Google /5, Booking.com /10, Hostelworld /10, Expedia /5
-    platform_reviews = {
-        "google": 4.0,
-        "booking": 7.7,
-        "hostelworld": 8.0,
-        "expedia": 7.4,
-    }
-
     sheet_id = os.environ.get("GOOGLE_SHEET_ID")
+
+    # -- Platform review scores and counts -----------------------------------
+    # Google is fetched live from the Places API. Booking.com, Hostelworld and
+    # Expedia have no self-serve API for a property (see reviews_client), so
+    # their last sheet value carries forward until someone edits the Platform
+    # Reviews tab by hand -- no code change needed to correct them.
+    platform_reviews = None
+    if sheet_id:
+        log("Fetching platform reviews ...")
+        try:
+            import build_dashboard
+            import reviews_client
+            last_known = build_dashboard.fetch_platform_reviews(
+                sheets_client._build_service(), sheet_id)
+            platform_reviews = reviews_client.merge_with_last_known(
+                reviews_client.fetch_all(log=log), last_known, log=log)
+        except Exception as exc:
+            log(f"     WARNING: platform review fetch failed -- {exc}")
+            log("     Platform Reviews row will be skipped this run.")
+
     if sheet_id:
         log("Writing to Google Sheet ...")
-
-        # Extract room-type data from Cloudbeds for this month
-        room_type_adr_data = None
-        try:
-            room_type_stats = extract_room_type_adr(client, month_start, week_end)
-            if room_type_stats:
-                month_key = f"{week_end.year}-{week_end.month:02d}"
-                room_type_adr_data = {
-                    month_key: {
-                        "private": {
-                            "bookings": room_type_stats["private"]["bookings"],
-                            "revenue": room_type_stats["private"]["revenue"],
-                        },
-                        "pods": {
-                            "bookings": room_type_stats["pods"]["bookings"],
-                            "revenue": room_type_stats["pods"]["revenue"],
-                        },
-                    }
-                }
-                month_name = sheets_client.MONTHS[week_end.month - 1]
-                log(f"  -> Room-type data extracted for {month_name}")
-        except Exception as exc:
-            log(f"  WARNING: Room-type extraction error -- {exc}")
-
         sheets_client.write_report(stats, week_end, monthly_revenues, sheet_id,
                                    ga4_data=ga4_data, monthly_occs=monthly_occs,
-                                   platform_reviews=platform_reviews, room_type_data=room_type_adr_data)
+                                   platform_reviews=platform_reviews)
+
+        log("Updating Room Type ADR (7-type breakdown, real per-reservation revenue) ...")
+        try:
+            monthly = build_room_type_adr.fetch_and_aggregate(year_start, week_end)
+            months_present = sorted(monthly.keys())
+            build_room_type_adr.write_sheet(monthly, months_present)
+            log(f"  -> Room Type ADR updated ({len(months_present)} months)")
+        except Exception as exc:
+            log(f"  WARNING: Room Type ADR update failed -- {exc}")
     else:
         log("GOOGLE_SHEET_ID not set -- skipping sheet write.")
 
