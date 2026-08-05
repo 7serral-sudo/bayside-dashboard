@@ -47,14 +47,12 @@ def main():
     print("Live fetchers (what the weekly run actually uses):")
     for name, fetcher in (("google", reviews_client.fetch_google),
                           ("hostelworld", reviews_client.fetch_hostelworld),
+                          ("booking", reviews_client.fetch_booking),
                           ("expedia", reviews_client.fetch_expedia)):
         result = fetcher()
-        if result:
-            print(f"     {name}: OK {result}")
-        elif name == "expedia":
-            print("     expedia: no API credentials -- still manual")
+        print(f"     {name}: {'OK ' + str(result) if result else 'unavailable -- see log above'}")
 
-    print("\nPublic pages currently known to block automated reads:")
+    print("\nPublic pages that block direct reads (hence SerpApi):")
     for name, url in PUBLIC_PAGES.items():
         probe_page(name, url)
 

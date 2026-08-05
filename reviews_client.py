@@ -15,38 +15,37 @@ Hostelworld  LIVE, via the public page. The partner API is gated, but the
              and reviewCount, and a plain request gets HTTP 200. Watch the
              trap in _aggregate_rating_for().
 
-Booking.com  BLOCKED. Neither API is open to a property (Connectivity
-             "Property Scores" is for certified providers and returns
-             content-quality scores, not the guest score; the Demand API's
-             reviews endpoint needs affiliate credentials). The public page
-             answers HTTP 202 with a ~4KB bot interstitial, with browser
-             headers or without. Manual.
+Booking.com  LIVE, via SerpApi. Neither of its own APIs is open to a property
+             (Connectivity "Property Scores" is for certified providers and
+             returns content-quality scores, not the guest score; the Demand
+             API's reviews endpoint needs affiliate credentials), and the
+             public page answers HTTP 202 with a ~4KB bot interstitial with or
+             without browser headers. Google's results carry the figure
+             though, so we read it from there. Needs SERPAPI_KEY.
 
-Expedia      BLOCKED FOR NOW. The Lodging Supply GraphQL API exposes an
-             `aggregatedReviews` query to lodging partners -- genuinely
-             reachable once an Expedia Partner Central API integration is
-             provisioned. Add EXPEDIA_* credentials and fill in
-             fetch_expedia(). The public page answers HTTP 429. Manual.
+Expedia      LIVE, via SerpApi -- its public page answers HTTP 429. The
+             Lodging Supply GraphQL API's `aggregatedReviews` query would be
+             the better source and is reachable once an Expedia Partner
+             Central integration is provisioned; swap fetch_expedia() over if
+             that happens.
 
 Cloudbeds aggregates all four in its Reputation dashboard but does not expose
 them on the public API, so it is not a shortcut here.
 
-ON THE GOOGLE-SEARCH SHORTCUT
------------------------------
-A single Google search ("bayside house expedia reviews") returns all four
-platforms' rating and count on one page -- by far the fastest way to read them
-by hand, and worth doing that way rather than visiting four sites.
+WHY SERPAPI RATHER THAN SCRAPING GOOGLE DIRECTLY
+------------------------------------------------
+A single Google search returns all four platforms' figures on one page, but
+Google will not serve it to a scheduled job: plain requests to /search gets
+HTTP 200 carrying only a redirect shell reading "Please click here if you are
+not redirected", and a clean automated browser gets the "unusual traffic" bot
+check. It works in a signed-in human session, which the Monday run is not.
+SerpApi does that fetch and hands back JSON.
 
-It does not survive automation. Plain requests to /search gets HTTP 200 but
-only a redirect shell whose visible text is "Please click here if you are not
-redirected"; a clean automated browser gets Google's "unusual traffic" bot
-check. It works in a signed-in human browser session, which the Monday-morning
-scheduled run is not.
-
-The unattended route for Booking.com and Expedia is therefore a paid SERP API
-(SerpApi, ScraperAPI, Apify and similar all return this same result as JSON).
-At one call a week the cost is negligible. Wire it in here if that gets
-approved -- until then those two stay manual via update_platform_reviews.py.
+Its free tier recurs monthly and needs no card; this costs one call per
+platform per week, so it stays inside the free allowance permanently. Serper
+was the alternative, rejected because its 2,500 credits are a one-time grant
+rather than a recurring allowance -- wrong shape for a job meant to run for
+years unattended.
 
 Run probe_review_sources.py to re-test all four; the blocked pair fail loudly
 there rather than silently inside a weekly run.
@@ -64,6 +63,13 @@ REQUEST_TIMEOUT = (5, 25)          # (connect, read) seconds -- never hang the w
 
 PLACES_URL = "https://places.googleapis.com/v1/places/{place_id}"
 HOSTELWORLD_URL = "https://www.hostelworld.com/hostels/p/313555/bayside-house/"
+SERPAPI_URL = "https://serpapi.com/search"
+
+# Which domain a platform's own listing lives on, for picking the right result.
+SERP_DOMAINS = {"booking": "booking.com", "expedia": "expedia."}
+# The search also returns other St Kilda hostels and Expedia category pages, so
+# a matching domain isn't enough -- the link must name this property.
+PROPERTY_URL_TOKENS = ("bayside-house", "bayside_house", "bayside-house.h77802432")
 
 BROWSER_HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -178,14 +184,87 @@ def fetch_hostelworld(log=print):
     return {"rating": rating, "count": count}
 
 
-def fetch_expedia(log=print):
-    """Placeholder for the Expedia Lodging Supply GraphQL `aggregatedReviews`
-    query. Reachable only once Expedia Partner Central API credentials exist --
-    see the module docstring."""
-    if not os.environ.get("EXPEDIA_CLIENT_ID"):
-        return None
-    log("     Expedia: credentials present but fetch_expedia() is not implemented yet.")
+def _serp_detected_extensions(result):
+    """rating/reviews out of a SerpApi organic result.
+
+    They live under rich_snippet.top.detected_extensions, but the same pair can
+    land under `bottom` depending on how Google laid the result out, so check
+    both rather than assuming.
+    """
+    snippet = result.get("rich_snippet") or {}
+    for section in ("top", "bottom"):
+        extensions = (snippet.get(section) or {}).get("detected_extensions") or {}
+        rating, reviews = extensions.get("rating"), extensions.get("reviews")
+        if rating is not None and reviews is not None:
+            return float(rating), int(reviews)
     return None
+
+
+def fetch_via_serp(platform, log=print):
+    """Rating and count for one platform, read off Google's own search results.
+
+    Booking.com and Expedia both block direct automated reads of their property
+    pages, but Google surfaces the same figures in its search results. SerpApi
+    returns that page as JSON, which sidesteps the bot check a scheduled run
+    would otherwise hit. Needs SERPAPI_KEY.
+    """
+    api_key = os.environ.get("SERPAPI_KEY")
+    if not api_key:
+        return None
+
+    domain = SERP_DOMAINS[platform]
+    try:
+        resp = requests.get(
+            SERPAPI_URL,
+            params={"engine": "google", "q": f"bayside house {platform} reviews",
+                    "google_domain": "google.com.au", "gl": "au", "hl": "en",
+                    "num": 10, "api_key": api_key},
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+    except requests.RequestException as exc:
+        log(f"     {platform}: SerpApi call failed -- {exc}")
+        return None
+    except ValueError as exc:
+        log(f"     {platform}: SerpApi returned non-JSON -- {exc}")
+        return None
+
+    if payload.get("error"):
+        log(f"     {platform}: SerpApi error -- {payload['error']}")
+        return None
+
+    # Only trust a result that is actually the property's page on that platform;
+    # the same search also surfaces Tripadvisor, Skyscanner and other hostels.
+    for result in payload.get("organic_results") or []:
+        link = str(result.get("link", ""))
+        if domain not in link:
+            continue
+        if not any(token in link.lower() for token in PROPERTY_URL_TOKENS):
+            continue
+        found = _serp_detected_extensions(result)
+        if found:
+            rating, count = found
+            log(f"     {platform}: {rating:.1f}/{SCALES[platform]} from {count} "
+                f"reviews (via SerpApi)")
+            return {"rating": rating, "count": count}
+
+    log(f"     {platform}: no rating found in the SerpApi result for {domain}.")
+    return None
+
+
+def fetch_booking(log=print):
+    return fetch_via_serp("booking", log=log)
+
+
+def fetch_expedia(log=print):
+    """Expedia via Google's results.
+
+    The Lodging Supply GraphQL API's `aggregatedReviews` query would be the
+    better source, but it needs Expedia Partner Central credentials -- see the
+    module docstring.
+    """
+    return fetch_via_serp("expedia", log=log)
 
 
 def fetch_all(log=print):
@@ -197,6 +276,7 @@ def fetch_all(log=print):
     fetched = {}
     for name, fetcher in (("google", fetch_google),
                           ("hostelworld", fetch_hostelworld),
+                          ("booking", fetch_booking),
                           ("expedia", fetch_expedia)):
         result = fetcher(log=log)
         if result:
