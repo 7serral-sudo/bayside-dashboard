@@ -469,7 +469,22 @@ def _calculate_month_occupancy(rooms_sold: list[dict], month: int, year: int, n_
     return round(sum(month_nights) / (n_beds * len(month_nights)) * 100, 1)
 
 
+def _occ_week_exists(service, sheet_id: str, week_end_str: str) -> bool:
+    result = service.spreadsheets().values().get(
+        spreadsheetId=sheet_id, range=f"{OCC_TAB}!A:A",
+    ).execute()
+    return any(r and r[0] == week_end_str for r in result.get("values", []))
+
+
 def append_occupancy(service, sheet_id: str, sid: int, s: dict, week_end: date):
+    # Re-running for a week already recorded would append a second row, which
+    # shows up as a duplicated point on the occupancy chart. Performance,
+    # Reviews and Website Analytics all guard against this; so does this now.
+    week_end_str = week_end.strftime("%d/%m/%Y")
+    if _occ_week_exists(service, sheet_id, week_end_str):
+        print(f"  WARNING: Occupancy row for {week_end_str} already exists -- skipping.")
+        return
+
     month_name = MONTHS[week_end.month - 1]
     last       = _last_occ_month(service, sheet_id)
     is_new     = (month_name != last)
