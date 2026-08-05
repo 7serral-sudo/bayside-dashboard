@@ -31,6 +31,23 @@ Expedia      BLOCKED FOR NOW. The Lodging Supply GraphQL API exposes an
 Cloudbeds aggregates all four in its Reputation dashboard but does not expose
 them on the public API, so it is not a shortcut here.
 
+ON THE GOOGLE-SEARCH SHORTCUT
+-----------------------------
+A single Google search ("bayside house expedia reviews") returns all four
+platforms' rating and count on one page -- by far the fastest way to read them
+by hand, and worth doing that way rather than visiting four sites.
+
+It does not survive automation. Plain requests to /search gets HTTP 200 but
+only a redirect shell whose visible text is "Please click here if you are not
+redirected"; a clean automated browser gets Google's "unusual traffic" bot
+check. It works in a signed-in human browser session, which the Monday-morning
+scheduled run is not.
+
+The unattended route for Booking.com and Expedia is therefore a paid SERP API
+(SerpApi, ScraperAPI, Apify and similar all return this same result as JSON).
+At one call a week the cost is negligible. Wire it in here if that gets
+approved -- until then those two stay manual via update_platform_reviews.py.
+
 Run probe_review_sources.py to re-test all four; the blocked pair fail loudly
 there rather than silently inside a weekly run.
 
