@@ -656,6 +656,30 @@ def build_room_type_cards_html(types):
     return f'    <div class="room-types">\n{inner}\n    </div>'
 
 
+def _prior_week(weeks, log, tab_name):
+    """The most recent week before the latest one, skipping rows that repeat the
+    latest week's date.
+
+    Taking weeks[-2] blindly makes a duplicated row compare the week against
+    ITSELF, and because _cmp_html treats equal values as "no change" that
+    renders as a flat sub-label with no arrow -- silently wrong rather than
+    visibly broken. This shipped once: occupancy read "vs last week: 67.0%"
+    against its own 67.0% while the real prior week was 73.6%, hiding a
+    6.6-point drop. Duplicates are logged so the weekly run surfaces them, and
+    if every earlier row is a duplicate we return None (rendering "n/a")
+    rather than inventing a comparison.
+    """
+    if len(weeks) < 2:
+        return None
+    latest_date = weeks[-1]["date"]
+    for row in reversed(weeks[:-1]):
+        if row["date"] != latest_date:
+            return row
+        log(f"  !! {tab_name}: duplicate row for {latest_date} -- "
+            f"excluded from the week-on-week comparison.")
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Main build
 # ---------------------------------------------------------------------------
@@ -693,8 +717,8 @@ def build(sheet_id: str | None = None, log=print):
     ref_2025 = load_2025_reference()
 
     # -- This Week KPIs (vs last week) ---------------------------------------
-    prev_occ  = occ_weeks[-2] if len(occ_weeks) > 1 else None
-    prev_perf = perf_weeks[-2] if len(perf_weeks) > 1 else None
+    prev_occ  = _prior_week(occ_weeks, log, sheets_client.OCC_TAB)
+    prev_perf = _prior_week(perf_weeks, log, sheets_client.PERF_TAB)
 
     occ_week_pct = f'{latest_occ["week_occ"]:.1f}%'
     occ_lastweek_pct = _cmp_html('vs last week', latest_occ["week_occ"],
