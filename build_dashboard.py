@@ -312,17 +312,29 @@ def fetch_website_analytics(service, sheet_id):
 
     # Same calendar month last year, for a "vs Jul 2025" YoY comparison
     # (2025 GA4 data was backfilled into this tab -- see backfill_web_analytics_2025.py).
+    #
+    # Last year's window is trimmed to the same number of weeks the current
+    # month has so far. A month still in progress otherwise gets measured
+    # against last year's COMPLETED month, which reads as a collapse in
+    # traffic when it's only a shorter window: one week of Aug 2026 (330
+    # sessions) against five weeks of Aug 2025 (687) showed as -52%.
     prev_sessions = prev_users = prev_pageviews = None
     prev_month_label = None
     ly_rows: list = []
     if target_month:
         ly_year = int(target_year) - 1
-        ly_rows = [r for r in rows if _date_str(r[0]).split("/")[1:] == [target_month, str(ly_year)]]
+        ly_month_rows = [r for r in rows if _date_str(r[0]).split("/")[1:] == [target_month, str(ly_year)]]
+        ly_rows = ly_month_rows[:len(month_rows)]
         if ly_rows:
             prev_sessions = sum(_fnum(r, 1) for r in ly_rows)
             prev_users = sum(_fnum(r, 2) for r in ly_rows)
             prev_pageviews = sum(_fnum(r, 3) for r in ly_rows)
-            prev_month_label = f"{sheets_client.MONTHS[int(target_month) - 1]} {ly_year}"
+            month_name = sheets_client.MONTHS[int(target_month) - 1]
+            if len(ly_rows) < len(ly_month_rows):
+                n = len(ly_rows)
+                prev_month_label = f"same {n} wk{'' if n == 1 else 's'} of {month_name} {ly_year}"
+            else:
+                prev_month_label = f"{month_name} {ly_year}"
 
     channels = {ch: 0.0 for ch in sheets_client.WEB_CHANNELS}
     for r in month_rows:
