@@ -1110,8 +1110,8 @@ function buildCharts() {
   raOpts.scales.y.ticks.callback = function (v) { return '$' + v; };
   make('roomAdrChart', { type: 'line',
     data: { labels: ra.labels, datasets: [
-      lineDataset(t, 'Private rooms', ra.private, true),
-      Object.assign(lineDataset(t, 'Pods', ra.pods, false), { borderDash: [] }) ] },
+      lineDataset(t, 'Private rooms', ra.private, true, t.cy, t.cyFill),
+      Object.assign(lineDataset(t, 'Pods', ra.pods, false, t.ly), { borderDash: [] }) ] },
     options: raOpts });
 }
 function rebuildCharts() {
