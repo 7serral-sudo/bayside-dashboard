@@ -746,20 +746,23 @@ def build(sheet_id: str | None = None, log=print):
     occ_lastmonth_pct = f'{prev_month_occ:.1f}%' if prev_month_occ is not None else 'n/a'
     adr_month = fmt_money(latest_perf["adr_mtd"])
 
-    # Compare with same month last year (from 2025 reference data)
+    # Compare with same month last year (from 2025 reference data). The month
+    # in progress is only ever partial, so the prior-year side must be cut off
+    # at the same day-of-month -- comparing against the *complete* prior-year
+    # month (as this used to) understates last year's pace and made this
+    # year's occupancy/ADR/revenue deltas all read wrong (e.g. Aug 2026 MTD
+    # vs the full Aug 2025 total showed occupancy up and revenue down at once).
     occ_month_ly = 'n/a'
     adr_month_ly = 'n/a'
+    ly_mtd_booked, ly_mtd_rev = None, None
     if ref_2025:
         ly_month_start = date(current_year - 1, week_end_date.month, 1)
-        if week_end_date.month == 12:
-            ly_month_end = date(current_year - 1, 12, 31)
-        else:
-            ly_month_end = date(current_year, week_end_date.month + 1, 1) - timedelta(days=1)
-        ly_booked, ly_rev = ly_range_sums(ref_2025, ly_month_start, ly_month_end)
+        ly_month_end = date(current_year - 1, week_end_date.month, week_end_date.day)
+        ly_mtd_booked, ly_mtd_rev = ly_range_sums(ref_2025, ly_month_start, ly_month_end)
         ly_days = (ly_month_end - ly_month_start).days + 1
-        if ly_days and ly_booked:
-            ly_occ_month = ly_booked / (LY_N_BEDS * ly_days) * 100
-            ly_adr_month = ly_rev / ly_booked
+        if ly_days and ly_mtd_booked:
+            ly_occ_month = ly_mtd_booked / (LY_N_BEDS * ly_days) * 100
+            ly_adr_month = ly_mtd_rev / ly_mtd_booked
             occ_month_ly = _cmp_html('vs last year', occ_month_val, ly_occ_month,
                                       fmt_fn=lambda v: f'{v:.1f}%')
             adr_month_ly = _cmp_html('vs last year', latest_perf["adr_mtd"], ly_adr_month,
@@ -769,7 +772,10 @@ def build(sheet_id: str | None = None, log=print):
     ytd_revenue = sum(v["cy"] for v in revenue.values())
     mtd = revenue.get(current_month_abbr, {"py": 0, "cy": 0})
     mtd_revenue = mtd["cy"]
-    mtd_ly = mtd["py"]
+    # Prefer the day-matched ref_2025 sum over the sheet's "py" column: the
+    # sheet stores the complete prior-year month, which only matches once the
+    # current month has also finished.
+    mtd_ly = ly_mtd_rev if ly_mtd_rev else mtd["py"]
     if mtd_ly:
         yoy_pct = (mtd_revenue - mtd_ly) / mtd_ly * 100
         yoy_sign = "+" if yoy_pct >= 0 else ""
