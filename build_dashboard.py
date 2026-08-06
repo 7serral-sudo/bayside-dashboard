@@ -679,6 +679,21 @@ def _add_room_type_occupancy(types, week_end_date, current_year):
         t["occ"] = (t["nights"] / avail * 100) if avail else 0.0
 
 
+# Occupancy at or above this reads as healthy and is shown in green; below it
+# stays amber. One threshold drives both the hero stats and the room-type tiles.
+OCC_STRONG_MIN = 70.0
+
+
+def _occ_class(occ):
+    return "occ-strong" if occ >= OCC_STRONG_MIN else "occ-weak"
+
+
+def _occ_span(occ):
+    """Coloured percentage for use inline, where the rest of the line is not
+    part of the metric (the hero stats sit on a shared comparison line)."""
+    return f'<span class="{_occ_class(occ)}">{occ:.1f}%</span>'
+
+
 def _section_occupancy(types, section):
     """Occupancy for a whole section (private rooms or pods).
 
@@ -707,7 +722,7 @@ def build_room_type_cards_html(types):
             f'''          <div class="room-card">
             <div class="room-name">{t["name"]}</div>
             <div class="room-adr num">{fmt_money(t["adr"])}</div>
-            <div class="room-occ num">{t.get("occ", 0):.1f}% occupancy</div>
+            <div class="room-occ num {_occ_class(t.get("occ", 0))}">{t.get("occ", 0):.1f}% occupancy</div>
             <div class="room-sub">{int(t["nights"]):,} nights · {t["beds"]} {"beds" if t["beds"] > 1 else "room"}</div>
           </div>'''
             for t in members
@@ -892,8 +907,8 @@ def build(sheet_id: str | None = None, log=print):
         room_type_cards_html = build_room_type_cards_html(room_type_adr.get("types", []))
         _private_occ = _section_occupancy(room_type_adr.get("types", []), "private")
         _pods_occ = _section_occupancy(room_type_adr.get("types", []), "dorm")
-        private_occ = f'{_private_occ:.1f}%' if _private_occ is not None else 'n/a'
-        pods_occ = f'{_pods_occ:.1f}%' if _pods_occ is not None else 'n/a'
+        private_occ = _occ_span(_private_occ) if _private_occ is not None else 'n/a'
+        pods_occ = _occ_span(_pods_occ) if _pods_occ is not None else 'n/a'
         # Build chart data for room type ADR trends
         room_adr_monthly = room_type_adr.get("monthly", {})
         room_adr_labels = room_adr_monthly.get("months", [])

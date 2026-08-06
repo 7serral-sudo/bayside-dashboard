@@ -236,7 +236,7 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
 /* hero stat strip */
 .hero-strip {
   margin-top: var(--s6);
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   border-block: 1px solid var(--line);
 }
 .hero-stat { padding: var(--s5) var(--s5) var(--s5) 0; }
@@ -250,9 +250,12 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
 }
 .hero-stat .cmp { margin-top: var(--s2); font-size: var(--t-sm); color: var(--n5); }
 @media (max-width: 860px) {
+  /* Two per row. Written by position rather than by index so the strip keeps
+     its rules if a stat is ever added or removed: an odd-numbered stat starts
+     a row (no left border), and anything from the third on opens a new row. */
   .hero-strip { grid-template-columns: 1fr 1fr; }
-  .hero-stat:nth-child(3) { border-left: none; padding-left: 0; border-top: 1px solid var(--line); }
-  .hero-stat:nth-child(4) { border-top: 1px solid var(--line); }
+  .hero-stat:nth-child(odd) { border-left: none; padding-left: 0; }
+  .hero-stat:nth-child(n+3) { border-top: 1px solid var(--line); }
 }
 @media (max-width: 480px) {
   .hero-strip { grid-template-columns: 1fr; }
@@ -358,6 +361,11 @@ section.block + section.block { border-top: 1px solid var(--line); }
 .room-name { font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--n5); margin-bottom: var(--s2); }
 .room-adr { font-size: var(--t-lg); font-weight: 800; letter-spacing: -0.01em; color: var(--n8); }
 .room-occ { font-size: var(--t-sm); font-weight: 600; color: var(--warn); margin-top: var(--s1); }
+/* Occupancy reads green at or above 70%, amber below. Compound selectors so the
+   modifier wins over .room-occ's own colour regardless of rule order. */
+.room-occ.occ-strong, .occ-strong { color: var(--good); }
+.room-occ.occ-weak,   .occ-weak   { color: var(--warn); }
+.cmp .occ-strong, .cmp .occ-weak { font-weight: 600; }
 .room-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
 .section-note { margin: var(--s5) 0 0; font-size: var(--t-xs); color: var(--n5); }
 
@@ -500,9 +508,14 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
         <div class="cmp">__ADR_LASTYEAR__</div>
       </div>
       <div class="hero-stat">
-        <div class="lbl">RevPAR YTD</div>
-        <div class="val num" id="hero-revpar">—</div>
-        <div class="cmp">Occupancy × ADR</div>
+        <div class="lbl">Private room ADR</div>
+        <div class="val num">__PRIVATE_ROOM_ADR_YTD__</div>
+        <div class="cmp">__PRIVATE_ROOM_OCC_YTD__ occupancy · 6 rooms</div>
+      </div>
+      <div class="hero-stat">
+        <div class="lbl">Pod ADR</div>
+        <div class="val num">__PODS_ADR_YTD__</div>
+        <div class="cmp">__PODS_OCC_YTD__ occupancy · 78 pods</div>
       </div>
     </div>
   </div>
@@ -577,20 +590,6 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
     <div class="block-head">
       <h2 id="year-h">Room rates, year to date</h2>
       <p class="note">6 private rooms · 78 pods</p>
-    </div>
-    <div class="cards c2">
-      <div class="kpi-card">
-        <div class="kpi-label">Private room ADR</div>
-        <div class="kpi-value num">__PRIVATE_ROOM_ADR_YTD__</div>
-        <div class="room-occ num">__PRIVATE_ROOM_OCC_YTD__ occupancy</div>
-        <div class="kpi-sub">Across 6 private rooms</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Pod ADR</div>
-        <div class="kpi-value num">__PODS_ADR_YTD__</div>
-        <div class="room-occ num">__PODS_OCC_YTD__ occupancy</div>
-        <div class="kpi-sub">Across 78 pods</div>
-      </div>
     </div>
 __ROOM_TYPE_CARDS_HTML__
     <p class="section-note">All rates exclude GST, matching Cloudbeds Data Insights. Add 10% for tax-inclusive rates. Occupancy is measured against each room type's bed count <em>as it stood at the time</em>, not the count shown beside it, because several rooms were reconfigured during the year.</p>
@@ -817,7 +816,8 @@ window.DEV_SAMPLES = {
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",
     MTD_REVENUE: "$58.9k", MTD_YOY_LABEL: "vs Jul 2025: $36.6k (+61%)", TREND_REV_MONTH: "up",
     PRIVATE_ROOM_ADR_YTD: "$75.76", PODS_ADR_YTD: "$34.47",
-    PRIVATE_ROOM_OCC_YTD: "82.9%", PODS_OCC_YTD: "82.3%",
+    PRIVATE_ROOM_OCC_YTD: '<span class="occ-strong">82.9%</span>',
+    PODS_OCC_YTD: '<span class="occ-strong">82.3%</span>',
     ROOM_TYPE_CARDS_HTML: (function () {
       var groups = [
         ["Private rooms", ["Deluxe Queen|$77.10|679 nights · 4 beds","Queen with Ensuite|$56.53|213 nights · 1 room","Private (Grd Floor)|$58.64|22 nights · 1 room"]],
@@ -925,18 +925,6 @@ function parseNum(str) {
   var m = String(str).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
   return m ? parseFloat(m[0]) : null;
 }
-
-/* ─── RevPAR, computed from live tokens ───────────────────────── */
-try {
-  var occEl = document.getElementById('hero-occ');
-  var adrEl = document.getElementById('hero-adr');
-  var revparEl = document.getElementById('hero-revpar');
-  if (occEl && adrEl && revparEl) {
-    var occ = parseNum(occEl.textContent);
-    var adr = parseNum(adrEl.textContent);
-    if (occ != null && adr != null) revparEl.textContent = '$' + (occ / 100 * adr).toFixed(2);
-  }
-} catch (e) { console.error('RevPAR calc failed', e); }
 
 /* ─── trend chips beside KPI values ──────────────────────────── */
 try {
