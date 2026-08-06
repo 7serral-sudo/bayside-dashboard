@@ -582,16 +582,18 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <div class="kpi-card">
         <div class="kpi-label">Private room ADR</div>
         <div class="kpi-value num">__PRIVATE_ROOM_ADR_YTD__</div>
+        <div class="room-occ num">__PRIVATE_ROOM_OCC_YTD__ occupancy</div>
         <div class="kpi-sub">Across 6 private rooms</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Pod ADR</div>
         <div class="kpi-value num">__PODS_ADR_YTD__</div>
+        <div class="room-occ num">__PODS_OCC_YTD__ occupancy</div>
         <div class="kpi-sub">Across 78 pods</div>
       </div>
     </div>
 __ROOM_TYPE_CARDS_HTML__
-    <p class="section-note">All rates exclude GST, matching Cloudbeds Data Insights. Add 10% for tax-inclusive rates. Occupancy % is calculated against each room type's current bed count — some 2026 figures may be over- or understated due to mid-year room reconfiguration.</p>
+    <p class="section-note">All rates exclude GST, matching Cloudbeds Data Insights. Add 10% for tax-inclusive rates. Occupancy is measured against each room type's bed count <em>as it stood at the time</em>, not the count shown beside it, because several rooms were reconfigured during the year.</p>
   </section>
 
   <!-- ═══════════ TRENDS ═══════════ -->
@@ -815,6 +817,7 @@ window.DEV_SAMPLES = {
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",
     MTD_REVENUE: "$58.9k", MTD_YOY_LABEL: "vs Jul 2025: $36.6k (+61%)", TREND_REV_MONTH: "up",
     PRIVATE_ROOM_ADR_YTD: "$75.76", PODS_ADR_YTD: "$34.47",
+    PRIVATE_ROOM_OCC_YTD: "82.9%", PODS_OCC_YTD: "82.3%",
     ROOM_TYPE_CARDS_HTML: (function () {
       var groups = [
         ["Private rooms", ["Deluxe Queen|$77.10|679 nights · 4 beds","Queen with Ensuite|$56.53|213 nights · 1 room","Private (Grd Floor)|$58.64|22 nights · 1 room"]],

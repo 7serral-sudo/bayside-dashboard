@@ -582,11 +582,13 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <div class="kpi-card">
         <div class="kpi-label">Private room ADR</div>
         <div class="kpi-value num">$71.99</div>
+        <div class="room-occ num">82.9% occupancy</div>
         <div class="kpi-sub">Across 6 private rooms</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Pod ADR</div>
         <div class="kpi-value num">$34.05</div>
+        <div class="room-occ num">82.3% occupancy</div>
         <div class="kpi-sub">Across 78 pods</div>
       </div>
     </div>
@@ -609,7 +611,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
           <div class="room-card">
             <div class="room-name">Private (Grd Floor)</div>
             <div class="room-adr num">$45.45</div>
-            <div class="room-occ num">10.2% occupancy</div>
+            <div class="room-occ num">100.0% occupancy</div>
             <div class="room-sub">22 nights · 1 room</div>
           </div>
         </div>
@@ -620,7 +622,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
           <div class="room-card">
             <div class="room-name">4 Bed Dorm</div>
             <div class="room-adr num">$34.52</div>
-            <div class="room-occ num">109.1% occupancy</div>
+            <div class="room-occ num">90.5% occupancy</div>
             <div class="room-sub">1,885 nights · 8 beds</div>
           </div>
           <div class="room-card">
@@ -638,13 +640,13 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
           <div class="room-card">
             <div class="room-name">Female Dorm</div>
             <div class="room-adr num">$34.38</div>
-            <div class="room-occ num">54.1% occupancy</div>
+            <div class="room-occ num">74.7% occupancy</div>
             <div class="room-sub">1,401 nights · 12 beds</div>
           </div>
         </div>
       </div>
     </div>
-    <p class="section-note">All rates exclude GST, matching Cloudbeds Data Insights. Add 10% for tax-inclusive rates. Occupancy % is calculated against each room type's current bed count — some 2026 figures may be over- or understated due to mid-year room reconfiguration.</p>
+    <p class="section-note">All rates exclude GST, matching Cloudbeds Data Insights. Add 10% for tax-inclusive rates. Occupancy is measured against each room type's bed count <em>as it stood at the time</em>, not the count shown beside it, because several rooms were reconfigured during the year.</p>
   </section>
 
   <!-- ═══════════ TRENDS ═══════════ -->
@@ -926,6 +928,7 @@ window.DEV_SAMPLES = {
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",
     MTD_REVENUE: "$58.9k", MTD_YOY_LABEL: "vs Jul 2025: $36.6k (+61%)", TREND_REV_MONTH: "up",
     PRIVATE_ROOM_ADR_YTD: "$75.76", PODS_ADR_YTD: "$34.47",
+    PRIVATE_ROOM_OCC_YTD: "82.9%", PODS_OCC_YTD: "82.3%",
     ROOM_TYPE_CARDS_HTML: (function () {
       var groups = [
         ["Private rooms", ["Deluxe Queen|$77.10|679 nights · 4 beds","Queen with Ensuite|$56.53|213 nights · 1 room","Private (Grd Floor)|$58.64|22 nights · 1 room"]],

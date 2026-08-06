@@ -83,6 +83,37 @@ DATA_2025_PATH = os.path.join(SCRIPT_DIR, "data_2025_reference.json")
 # contemporaneous bed count).
 LY_N_BEDS = 83
 
+# Per-room-type bed counts change as rooms are reconfigured during the year,
+# and neither Cloudbeds nor the sheet records that history -- ROOM_TYPES carries
+# only TODAY's count. Dividing a full year of nights by today's beds is what
+# made the 4 Bed Dorm read 109.1% (physically impossible) while the Female Dorm
+# read 54%, understating it by about 20 points.
+#
+# Each entry is (date the count took effect, beds from that date), earliest
+# first. Days before a type's first entry count as zero capacity, which is what
+# a room that entered service mid-year needs. Types absent from this table were
+# not reconfigured and use their ROOM_TYPES count throughout.
+#
+# Confirmed by the property, and corroborated by nights sold -- any month whose
+# nights exceed beds x days proves the count must have been higher then:
+#   4 Bed Dorm   1 room in Jan, 3 rooms Feb-May, 2 from Jun (one became a female dorm)
+#   Female Dorm  4 beds per room: 1 room to Feb, 2 from Mar, 3 from May
+#   Private (Grd Floor)  entered service mid-July -- 22 nights sold across
+#                        exactly its 22 days in service, which is what fixes the date
+#
+# Month boundaries are approximate: the real changes happened mid-month, leaving
+# a ~3% residual in March (12 nights). Once a year rolls over, the last entry
+# for each type is carried forward, and every one of those equals its ROOM_TYPES
+# count -- so this degrades to today's behaviour rather than going stale.
+ROOM_TYPE_BED_HISTORY = {
+    # 4 Bed Dorm
+    "514747": [(date(2026, 1, 1), 4), (date(2026, 2, 1), 12), (date(2026, 6, 1), 8)],
+    # Female Dorm
+    "462944": [(date(2026, 1, 1), 4), (date(2026, 3, 1), 8), (date(2026, 5, 1), 12)],
+    # Private (Grd Floor)
+    "679030": [(date(2026, 7, 14), 1)],
+}
+
 # Platform order for the "Platform reviews" row, matching the sheet's column
 # order. Ratings and counts both come live from the Platform Reviews tab.
 PLATFORM_ORDER = ("google", "booking", "hostelworld", "expedia")
@@ -263,7 +294,7 @@ def _room_type_detail(row):
         nights, adr = _fnum(row, col), _fnum(row, col + 1)
         if not nights and not adr:
             continue          # room type not sold yet this year -- skip the tile
-        types.append({"name": name, "beds": beds, "section": section,
+        types.append({"id": rt_id, "name": name, "beds": beds, "section": section,
                       "nights": nights, "adr": adr})
     return types
 
@@ -614,13 +645,51 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
     return "\n".join(cards)
 
 
+def _beds_on(rt_id, day, current_beds):
+    """Beds a room type had on a given date, honouring any reconfigurations.
+
+    Falls back to today's count for types that were never reconfigured. For a
+    type that WAS, days before its first entry return zero -- a room that opened
+    in July must not have the first half of the year counted against it.
+    """
+    history = ROOM_TYPE_BED_HISTORY.get(rt_id)
+    if not history:
+        return current_beds
+    beds = 0
+    for effective, count in history:
+        if day < effective:
+            break
+        beds = count
+    return beds
+
+
 def _add_room_type_occupancy(types, week_end_date, current_year):
-    """Adds a YTD occupancy % per room type: nights sold / (beds x days elapsed
-    this year). Mutates each type dict in place."""
-    days_elapsed = (week_end_date - date(current_year, 1, 1)).days + 1
+    """Adds a YTD occupancy % per room type: nights sold / bed-nights available.
+
+    Capacity is accumulated day by day rather than as beds x days_elapsed,
+    because several room types were reconfigured mid-year and today's bed count
+    does not describe January (see ROOM_TYPE_BED_HISTORY). Mutates in place.
+    """
+    start = date(current_year, 1, 1)
+    n_days = (week_end_date - start).days + 1
     for t in types:
-        avail = t["beds"] * days_elapsed
+        avail = sum(_beds_on(t["id"], start + timedelta(days=i), t["beds"])
+                    for i in range(n_days))
+        t["avail"] = avail
         t["occ"] = (t["nights"] / avail * 100) if avail else 0.0
+
+
+def _section_occupancy(types, section):
+    """Occupancy for a whole section (private rooms or pods).
+
+    Summed from the same per-type nights and day-by-day capacity the individual
+    tiles use, so the headline card and the breakdown beneath it cannot
+    disagree. Returns None when the section has no capacity to divide by.
+    """
+    members = [t for t in types if t["section"] == section]
+    nights = sum(t["nights"] for t in members)
+    avail = sum(t.get("avail", 0) for t in members)
+    return (nights / avail * 100) if avail else None
 
 
 def build_room_type_cards_html(types):
@@ -821,6 +890,10 @@ def build(sheet_id: str | None = None, log=print):
         private_adr = fmt_money(room_type_adr["private_adr"])
         pods_adr = fmt_money(room_type_adr["pods_adr"])
         room_type_cards_html = build_room_type_cards_html(room_type_adr.get("types", []))
+        _private_occ = _section_occupancy(room_type_adr.get("types", []), "private")
+        _pods_occ = _section_occupancy(room_type_adr.get("types", []), "dorm")
+        private_occ = f'{_private_occ:.1f}%' if _private_occ is not None else 'n/a'
+        pods_occ = f'{_pods_occ:.1f}%' if _pods_occ is not None else 'n/a'
         # Build chart data for room type ADR trends
         room_adr_monthly = room_type_adr.get("monthly", {})
         room_adr_labels = room_adr_monthly.get("months", [])
@@ -829,6 +902,8 @@ def build(sheet_id: str | None = None, log=print):
     else:
         private_adr = 'n/a'
         pods_adr = 'n/a'
+        private_occ = 'n/a'
+        pods_occ = 'n/a'
         room_type_cards_html = ""
         room_adr_labels = []
         room_adr_private_data = []
@@ -962,6 +1037,8 @@ def build(sheet_id: str | None = None, log=print):
         "__ADR_LASTYEAR__":        adr_lastyear,
         "__PRIVATE_ROOM_ADR_YTD__": private_adr,
         "__PODS_ADR_YTD__":        pods_adr,
+        "__PRIVATE_ROOM_OCC_YTD__": private_occ,
+        "__PODS_OCC_YTD__":        pods_occ,
         "__ROOM_TYPE_CARDS_HTML__": room_type_cards_html,
         "__YTD_REVENUE__":         fmt_money_k(ytd_revenue),
         "__YTD_REVENUE_WEEK_LABEL__": ytd_revenue_label,
