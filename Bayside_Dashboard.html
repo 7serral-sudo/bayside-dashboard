@@ -442,6 +442,14 @@ table.orders th {
   border-bottom: 1px solid var(--line-inner);
 }
 table.orders th:nth-child(-n+3), table.orders td:nth-child(-n+3) { text-align: left; }
+.order-progress { padding: 0 var(--s4) var(--s3); }
+.order-progress-bar {
+  height: 6px; border-radius: 999px; background: var(--line);
+  overflow: hidden; margin-bottom: var(--s2);
+}
+.order-progress-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+.order-progress-text { font-size: var(--t-xs); color: var(--n5); }
+.order-progress-text strong { font-weight: 600; color: var(--warn); }
 table.orders td { padding: var(--s2) var(--s4); text-align: right; color: var(--n6); }
 table.orders tbody tr + tr td { border-top: 1px solid var(--line-inner); }
 table.orders tfoot td { border-top: 1px solid var(--line); font-weight: 600; color: var(--n7); padding-top: var(--s3); }
@@ -939,6 +947,10 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
           <tr class="toggle-row"><td colspan="2">
             <details class="order-toggle">
               <summary>6 orders placed · $7,314.84 to date</summary>
+              <div class="order-progress">
+                <div class="order-progress-bar"><span style="width:62%"></span></div>
+                <div class="order-progress-text">$7,314.84 spent of $11,776.00 budget · <strong>$4,461.16 remaining</strong></div>
+              </div>
               <table class="orders">
                 <thead>
                   <tr><th>Order date</th><th>Order #</th><th>Model</th><th>Qty</th><th>Total</th><th>Per unit</th></tr>
