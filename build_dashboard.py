@@ -583,42 +583,45 @@ def build_channels_chart_data(perf_weeks, current_year, n_months=6):
     return months_with_data, datasets
 
 
-def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list, current_year: int, ref_2025: dict = None):
-    # Check-ins per calendar month, derived from each week's date.
-    ci_by_month = {m: 0 for m in sheets_client.MONTHS}
-    for w in perf_weeks:
-        try:
-            dd, mm, yyyy = w["date"].split("/")
-            if int(yyyy) != current_year:
-                continue
-            month_abbr = sheets_client.MONTHS[int(mm) - 1]
-            ci_by_month[month_abbr] += w["ci_total"]
-        except (ValueError, IndexError):
-            continue
-
+def build_monthly_cards_html(occ_monthly: dict, revenue: dict, current_year: int,
+                              ref_2025: dict = None, week_end_date: date = None):
     cards = []
     for m in sheets_client.MONTHS:
         if m not in occ_monthly:
             continue
         occ_pct = occ_monthly[m]
-        ci = int(ci_by_month.get(m, 0))
         rev = revenue.get(m, {}).get("cy", 0)
+        month_num = sheets_client.MONTHS.index(m) + 1
+        is_current_month = week_end_date is not None and month_num == week_end_date.month
 
-        # YoY comparisons
+        # YoY comparisons, day-matched against the 2025 reference data. A
+        # month still in progress only has partial current-year figures, so
+        # the prior-year side must be cut off at the same day-of-month --
+        # otherwise a handful of days this year gets compared against all of
+        # last year's month (the same bug the "This month" KPI card had: Aug
+        # MTD vs a full prior Aug made occupancy and revenue read backwards).
+        # This also replaces the old comparison, which quietly used the
+        # month's check-in *count* change while labelling it "occ".
         yoy_text = ""
         if ref_2025:
-            month_num = sheets_client.MONTHS.index(m) + 1
-            ly_monthly_ci = ref_2025.get("monthly_checkins", {})
-            ly_ci = int(ly_monthly_ci.get(str(month_num), 0))
-            ly_rev = revenue.get(m, {}).get("py", 0)
-
-            if ly_ci:
-                ci_pct = ((ci - ly_ci) / ly_ci * 100)
-                ci_sign = "+" if ci_pct >= 0 else ""
-                ci_color = '#3FCF6E' if ci_pct >= 0 else '#F0564A'
-                ci_yoy = f' <span style="color:{ci_color}">({ci_sign}{ci_pct:.0f}%)</span>'
+            ly_month_start = date(current_year - 1, month_num, 1)
+            if is_current_month:
+                ly_month_end = date(current_year - 1, month_num, week_end_date.day)
+            elif month_num < 12:
+                ly_month_end = date(current_year - 1, month_num + 1, 1) - timedelta(days=1)
             else:
-                ci_yoy = " (n/a)"
+                ly_month_end = date(current_year - 1, 12, 31)
+            ly_booked, ly_rev = ly_range_sums(ref_2025, ly_month_start, ly_month_end)
+            ly_days = (ly_month_end - ly_month_start).days + 1
+
+            if ly_booked:
+                ly_occ = ly_booked / (LY_N_BEDS * ly_days) * 100
+                occ_pct_change = ((occ_pct - ly_occ) / ly_occ * 100)
+                occ_sign = "+" if occ_pct_change >= 0 else ""
+                occ_color = '#3FCF6E' if occ_pct_change >= 0 else '#F0564A'
+                occ_part = f'<span style="color:{occ_color}">{occ_sign}{occ_pct_change:.0f}% occ</span> · '
+            else:
+                occ_part = ""
 
             if ly_rev:
                 rev_pct = ((rev - ly_rev) / ly_rev * 100)
@@ -626,11 +629,6 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, perf_weeks: list,
                 rev_color = '#3FCF6E' if rev_pct >= 0 else '#F0564A'
             else:
                 rev_pct, rev_sign, rev_color = 0, "", "#888888"
-
-            if ly_ci:
-                occ_part = f'<span style="color:{ci_color}">{ci_sign}{ci_pct:.0f}% occ</span> · '
-            else:
-                occ_part = ""
 
             yoy_text = f'<div class="monthly-sub" style="font-size: 11px; margin-top: 4px;">vs \'{str(current_year - 1)[2:]}: {occ_part}<span style="color:{rev_color}">{rev_sign}{rev_pct:.0f}% rev</span></div>'
 
@@ -679,19 +677,22 @@ def _add_room_type_occupancy(types, week_end_date, current_year):
         t["occ"] = (t["nights"] / avail * 100) if avail else 0.0
 
 
-# Occupancy at or above this reads as healthy and is shown in green; below it
-# stays amber. One threshold drives both the hero stats and the room-type tiles.
-OCC_STRONG_MIN = 70.0
+# Occupancy targets differ by section: a private room has to work harder to pay
+# for itself than a dorm bed does. At or above target reads green, below it red.
+# Keyed by the same "section" value the room types already carry.
+OCC_TARGET = {"private": 80.0, "dorm": 70.0}
+OCC_TARGET_DEFAULT = 70.0
 
 
-def _occ_class(occ):
-    return "occ-strong" if occ >= OCC_STRONG_MIN else "occ-weak"
+def _occ_class(occ, section):
+    target = OCC_TARGET.get(section, OCC_TARGET_DEFAULT)
+    return "occ-strong" if occ >= target else "occ-weak"
 
 
-def _occ_span(occ):
+def _occ_span(occ, section):
     """Coloured percentage for use inline, where the rest of the line is not
     part of the metric (the hero stats sit on a shared comparison line)."""
-    return f'<span class="{_occ_class(occ)}">{occ:.1f}%</span>'
+    return f'<span class="{_occ_class(occ, section)}">{occ:.1f}%</span>'
 
 
 def _section_occupancy(types, section):
@@ -722,7 +723,7 @@ def build_room_type_cards_html(types):
             f'''          <div class="room-card">
             <div class="room-name">{t["name"]}</div>
             <div class="room-adr num">{fmt_money(t["adr"])}</div>
-            <div class="room-occ num {_occ_class(t.get("occ", 0))}">{t.get("occ", 0):.1f}% occupancy</div>
+            <div class="room-occ num {_occ_class(t.get("occ", 0), t["section"])}">{t.get("occ", 0):.1f}% occupancy</div>
             <div class="room-sub">{int(t["nights"]):,} nights · {t["beds"]} {"beds" if t["beds"] > 1 else "room"}</div>
           </div>'''
             for t in members
@@ -804,6 +805,16 @@ def build(sheet_id: str | None = None, log=print):
     prev_occ  = _prior_week(occ_weeks, log, sheets_client.OCC_TAB)
     prev_perf = _prior_week(perf_weeks, log, sheets_client.PERF_TAB)
 
+    # Name the weeks being compared rather than claiming "the one before". The
+    # weekly job can run off-cycle (28 Jul and again on 29 Jul 2026), so
+    # consecutive rows are not always seven days apart, and the reader needs to
+    # see which two dates the comparison actually used.
+    if prev_occ:
+        week_range_note = (f'Week ending {fmt_date_human(week_end_str)} '
+                           f'vs week ending {fmt_date_human(prev_occ["date"])}')
+    else:
+        week_range_note = f'Week ending {fmt_date_human(week_end_str)}'
+
     occ_week_pct = f'{latest_occ["week_occ"]:.1f}%'
     occ_lastweek_pct = _cmp_html('vs last week', latest_occ["week_occ"],
                                   prev_occ["week_occ"] if prev_occ else None,
@@ -822,6 +833,10 @@ def build(sheet_id: str | None = None, log=print):
 
     # -- This Month KPIs (vs last month and vs last year) -------------------
     current_month_abbr = sheets_client.MONTHS[week_end_date.month - 1]
+    # State the days covered. "This month (Aug)" beside a $6.9k revenue figure
+    # reads as a whole month when it is really the first four days of one.
+    mtd_range_note = (f'1–{week_end_date.day} {current_month_abbr} {current_year} '
+                      f'vs the same days last year')
     occ_month_val = occ_monthly.get(current_month_abbr)
     occ_month_pct = f'{occ_month_val:.1f}%' if occ_month_val is not None else 'n/a'
     month_idx = sheets_client.MONTHS.index(current_month_abbr)
@@ -867,7 +882,13 @@ def build(sheet_id: str | None = None, log=print):
     else:
         mtd_yoy_label = f'vs {current_month_abbr} {current_year - 1}: n/a'
 
-    week_number = len(occ_weeks)
+    # Calendar week of the year, NOT the row count. len(occ_weeks) counted rows,
+    # which silently inflates whenever the weekly job runs off-cycle: an extra
+    # run on 29 Jul 2026 put 32 rows in a year that had only elapsed 31 weeks,
+    # and "Week 32 of 52" happened to look right purely by coincidence.
+    iso_year, week_number, _ = week_end_date.isocalendar()
+    # 28 December always falls in the final ISO week, so this gives 52 or 53.
+    weeks_in_year = date(iso_year, 12, 28).isocalendar()[1]
 
     # YTD Revenue YoY comparison
     ytd_revenue_label = "n/a"
@@ -907,8 +928,8 @@ def build(sheet_id: str | None = None, log=print):
         room_type_cards_html = build_room_type_cards_html(room_type_adr.get("types", []))
         _private_occ = _section_occupancy(room_type_adr.get("types", []), "private")
         _pods_occ = _section_occupancy(room_type_adr.get("types", []), "dorm")
-        private_occ = _occ_span(_private_occ) if _private_occ is not None else 'n/a'
-        pods_occ = _occ_span(_pods_occ) if _pods_occ is not None else 'n/a'
+        private_occ = _occ_span(_private_occ, "private") if _private_occ is not None else 'n/a'
+        pods_occ = _occ_span(_pods_occ, "dorm") if _pods_occ is not None else 'n/a'
         # Build chart data for room type ADR trends
         room_adr_monthly = room_type_adr.get("monthly", {})
         room_adr_labels = room_adr_monthly.get("months", [])
@@ -934,7 +955,15 @@ def build(sheet_id: str | None = None, log=print):
 
     # -- Website analytics ----------------------------------------------------
     if web:
-        web_title = f'Website Analytics ({web["month_label"]})'
+        # "Website Analytics (Aug 2026)" claimed a whole month when only one
+        # week of it had been collected. These are GA4 weekly rows grouped by
+        # the month their week ENDS in, so the honest label is how many weeks
+        # are in hand and the date they run to -- which also matches the
+        # "vs same N wks of ..." comparisons beneath it.
+        _n_weeks = web.get("weeks_included") or 0
+        web_title = (f'Website Analytics ({_n_weeks} week'
+                     f'{"" if _n_weeks == 1 else "s"} to {fmt_date_human(week_end_str)})'
+                     if _n_weeks else f'Website Analytics ({web["month_label"]})')
         web_sessions = int(web["sessions"])
         web_users = int(web["users"])
         web_pageviews = int(web["pageviews"])
@@ -1014,9 +1043,10 @@ def build(sheet_id: str | None = None, log=print):
     channels_chart_labels, channels_chart_datasets = build_channels_chart_data(perf_weeks, current_year)
 
     # -- Build HTML blocks -------------------------------------------------
-    monthly_cards_html = build_monthly_cards_html(occ_monthly, revenue, perf_weeks, current_year, ref_2025)
+    monthly_cards_html = build_monthly_cards_html(occ_monthly, revenue, current_year, ref_2025, week_end_date)
 
-    footer_text = f"Bayside House Dashboard · Week {week_number} of 52 · Year-to-date data through {fmt_date_human(week_end_str)}"
+    footer_text = (f"Bayside House Dashboard · Week {week_number} of {weeks_in_year} · "
+                   f"Year-to-date data through {fmt_date_human(week_end_str)}")
 
     # -- Token replacement ---------------------------------------------------
     with open(TEMPLATE_PATH, encoding="utf-8") as f:
@@ -1059,6 +1089,8 @@ def build(sheet_id: str | None = None, log=print):
         "__YTD_REVENUE_WEEK_LABEL__": ytd_revenue_label,
         "__MTD_REVENUE__":         fmt_money_k(mtd_revenue),
         "__MTD_MONTH_LABEL__":     f"({current_month_abbr})",
+        "__WEEK_RANGE_NOTE__":     week_range_note,
+        "__MTD_RANGE_NOTE__":      mtd_range_note,
         "__MTD_YOY_LABEL__":       mtd_yoy_label,
         "__WEB_ANALYTICS_TITLE__": web_title,
         "__WEB_SESSIONS__":        f"{web_sessions:,}",

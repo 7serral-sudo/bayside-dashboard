@@ -361,10 +361,11 @@ section.block + section.block { border-top: 1px solid var(--line); }
 .room-name { font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--n5); margin-bottom: var(--s2); }
 .room-adr { font-size: var(--t-lg); font-weight: 800; letter-spacing: -0.01em; color: var(--n8); }
 .room-occ { font-size: var(--t-sm); font-weight: 600; color: var(--warn); margin-top: var(--s1); }
-/* Occupancy reads green at or above 70%, amber below. Compound selectors so the
-   modifier wins over .room-occ's own colour regardless of rule order. */
+/* Occupancy reads green at or above its section's target (privates 80%, dorms
+   70%) and red below. Compound selectors so the modifier wins over .room-occ's
+   own colour regardless of rule order. */
 .room-occ.occ-strong, .occ-strong { color: var(--good); }
-.room-occ.occ-weak,   .occ-weak   { color: var(--warn); }
+.room-occ.occ-weak,   .occ-weak   { color: var(--bad); }
 .cmp .occ-strong, .cmp .occ-weak { font-weight: 600; }
 .room-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
 .section-note { margin: var(--s5) 0 0; font-size: var(--t-xs); color: var(--n5); }
@@ -524,7 +525,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
   <section class="block wrap reveal" id="week" aria-labelledby="week-h">
     <div class="block-head">
       <h2 id="week-h">This week</h2>
-      <p class="note">Latest completed week vs the one before</p>
+      <p class="note">__WEEK_RANGE_NOTE__</p>
     </div>
     <div class="cards c3">
       <div class="kpi-card" data-trend="__TREND_OCC_WEEK__">
@@ -564,7 +565,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
   <section class="block wrap reveal" id="month" aria-labelledby="month-h">
     <div class="block-head">
       <h2 id="month-h">This month <span style="color:var(--n5);font-weight:500">__MTD_MONTH_LABEL__</span></h2>
-      <p class="note">Month to date vs the same month last year</p>
+      <p class="note">__MTD_RANGE_NOTE__</p>
     </div>
     <div class="cards c3">
       <div class="kpi-card" data-trend="__TREND_OCC_MONTH__">
@@ -765,6 +766,57 @@ __WEB_DEVICE_HTML__
     </div>
   </section>
 
+  <!-- ═══════════ FITOUT BUDGET ═══════════ -->
+  <section class="block wrap reveal" id="fitout" aria-labelledby="fitout-h">
+    <div class="block-head">
+      <h2 id="fitout-h">Fitout budget</h2>
+      <p class="note">Reception &amp; lounge refresh</p>
+    </div>
+    <div class="cards c3" style="margin-bottom: var(--s4);">
+      <div class="kpi-card">
+        <div class="kpi-label">Total budget</div>
+        <div class="kpi-value num">$50,525.15</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Paid</div>
+        <div class="kpi-value num">$13,879.96</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">To go</div>
+        <div class="kpi-value num">$36,645.19</div>
+      </div>
+    </div>
+    <div class="table-shell">
+      <table class="edm">
+        <thead>
+          <tr><th>Item</th><th>Quote</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Zac and Joel — material only</td><td>$8,779.96</td></tr>
+          <tr><td>Electrician</td><td class="mid">TBC</td></tr>
+          <tr><td>Painting, corking and staining</td><td>$10,000.00</td></tr>
+          <tr><td>Cabinetry — reception</td><td>$6,153.19</td></tr>
+          <tr><td>Cabinetry — TV unit</td><td>$3,000.00</td></tr>
+          <tr><td>Upholstery</td><td>$3,300.00</td></tr>
+          <tr><td>Mattresses</td><td>$11,776.00</td></tr>
+          <tr><td>Couch</td><td>$1,188.00</td></tr>
+          <tr><td>TV</td><td>$928.00</td></tr>
+          <tr><td>TV bracket</td><td>$150.00</td></tr>
+          <tr><td>Cushions (pillows), decor</td><td>$250.00</td></tr>
+          <tr><td>Artwork x 3</td><td>$600.00</td></tr>
+          <tr><td>Plants — Jen?</td><td>$100.00</td></tr>
+          <tr><td>Rugs x 2</td><td>—</td></tr>
+          <tr><td>Coffee tables x 2</td><td>$800.00</td></tr>
+          <tr><td>LED sign</td><td>$500.00</td></tr>
+          <tr><td>Building signage</td><td>$3,000.00</td></tr>
+          <tr><td><strong>Total budget</strong></td><td><strong>$50,525.15</strong></td></tr>
+          <tr><td>Paid</td><td class="pos">$13,879.96</td></tr>
+          <tr><td>To go</td><td class="neg">$36,645.19</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
 </main>
 
 <footer>
@@ -813,6 +865,8 @@ window.DEV_SAMPLES = {
     CHECKINS_WEEK: "48", CHECKINS_LASTWEEK: "vs last week: 48", TREND_CI_WEEK: "neutral",
     WEEK_BOOKINGS: "29", TOTAL_WEEK_BOOKINGS: "58", LONG_TERMERS: "24",
     MTD_MONTH_LABEL: "(Jul)", OCC_MONTH_PCT: "78.1%", OCC_MONTH_LY_PCT: "vs Jul 2025: 23.6%", TREND_OCC_MONTH: "up",
+    WEEK_RANGE_NOTE: "Week ending 4 Aug 2026 vs week ending 29 Jul 2026",
+    MTD_RANGE_NOTE: "1–4 Aug 2026 vs the same days last year",
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",
     MTD_REVENUE: "$58.9k", MTD_YOY_LABEL: "vs Jul 2025: $36.6k (+61%)", TREND_REV_MONTH: "up",
     PRIVATE_ROOM_ADR_YTD: "$75.76", PODS_ADR_YTD: "$34.47",
