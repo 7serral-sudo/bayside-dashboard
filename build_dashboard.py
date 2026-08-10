@@ -741,28 +741,57 @@ def build_room_type_cards_html(types):
     return f'    <div class="room-types">\n{inner}\n    </div>'
 
 
-def _prior_week(weeks, log, tab_name):
-    """The most recent week before the latest one, skipping rows that repeat the
-    latest week's date.
+def _parse_week_date(s):
+    try:
+        return datetime.strptime(s, "%d/%m/%Y").date()
+    except (ValueError, TypeError):
+        return None
 
-    Taking weeks[-2] blindly makes a duplicated row compare the week against
-    ITSELF, and because _cmp_html treats equal values as "no change" that
-    renders as a flat sub-label with no arrow -- silently wrong rather than
-    visibly broken. This shipped once: occupancy read "vs last week: 67.0%"
-    against its own 67.0% while the real prior week was 73.6%, hiding a
-    6.6-point drop. Duplicates are logged so the weekly run surfaces them, and
-    if every earlier row is a duplicate we return None (rendering "n/a")
-    rather than inventing a comparison.
+
+def _prior_week(weeks, log, tab_name):
+    """The week to compare the latest one against, preferring a full seven days
+    back.
+
+    Taking weeks[-2] blindly breaks two ways, and both are silent rather than
+    loud. A DUPLICATED row makes the week compare against itself, and because
+    _cmp_html treats equal values as "no change" it renders as a flat
+    sub-label with no arrow -- this shipped, occupancy reading "vs last week:
+    67.0%" against its own 67.0% while the real prior week was 73.6%. An
+    OFF-CYCLE row does subtler damage: an extra run on 29 Jul 2026, a day
+    after the 28 Jul one, left the 4 Aug week measured across a 6-day gap
+    instead of a clean week.
+
+    So: drop rows repeating the latest date, then take the row exactly seven
+    days back if one exists, else the most recent earlier row. Anything skipped
+    is logged so the weekly run surfaces it, and None (rendering "n/a") is
+    returned rather than inventing a comparison. On a clean sheet this picks
+    weeks[-2], exactly as before.
     """
     if len(weeks) < 2:
         return None
+
     latest_date = weeks[-1]["date"]
-    for row in reversed(weeks[:-1]):
-        if row["date"] != latest_date:
-            return row
-        log(f"  !! {tab_name}: duplicate row for {latest_date} -- "
+    earlier = [w for w in weeks[:-1] if w["date"] != latest_date]
+    dupes = len(weeks) - 1 - len(earlier)
+    if dupes:
+        log(f"  !! {tab_name}: {dupes} duplicate row(s) for {latest_date} -- "
             f"excluded from the week-on-week comparison.")
-    return None
+    if not earlier:
+        return None
+
+    latest = _parse_week_date(latest_date)
+    if latest:
+        target = latest - timedelta(days=7)
+        exact = [w for w in earlier if _parse_week_date(w["date"]) == target]
+        if exact:
+            chosen = exact[-1]
+            if chosen is not earlier[-1]:
+                log(f"  !! {tab_name}: {earlier[-1]['date']} is off-cycle "
+                    f"({(latest - _parse_week_date(earlier[-1]['date'])).days}d before "
+                    f"{latest_date}); comparing against {chosen['date']} instead.")
+            return chosen
+
+    return earlier[-1]
 
 
 # ---------------------------------------------------------------------------
