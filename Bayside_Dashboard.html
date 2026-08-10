@@ -551,18 +551,18 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
   <section class="block wrap reveal" id="week" aria-labelledby="week-h">
     <div class="block-head">
       <h2 id="week-h">This week</h2>
-      <p class="note">Week ending 4 Aug 2026 vs week ending 29 Jul 2026</p>
+      <p class="note">Week ending 4 Aug 2026 vs week ending 28 Jul 2026</p>
     </div>
     <div class="cards c3">
       <div class="kpi-card" data-trend="down">
         <div class="kpi-label">Occupancy</div>
         <div class="kpi-value num">67.0%</div>
-        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ 73.6%</span></div>
+        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ 77.9%</span></div>
       </div>
       <div class="kpi-card" data-trend="down">
         <div class="kpi-label">Average daily rate</div>
         <div class="kpi-value num">$29.87</div>
-        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ $30.83</span></div>
+        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ $30.99</span></div>
       </div>
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Check-ins</div>
@@ -914,13 +914,13 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
         <div class="kpi-label">Total budget</div>
         <div class="kpi-value num">$50,525.15</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Paid</div>
-        <div class="kpi-value num">$13,879.96</div>
+        <div class="kpi-value num" style="color:var(--good)">$13,879.96</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-trend="down">
         <div class="kpi-label">To go</div>
-        <div class="kpi-value num">$36,645.19</div>
+        <div class="kpi-value num" style="color:var(--bad)">$36,645.19</div>
       </div>
     </div>
     <div class="table-shell">
@@ -1169,8 +1169,9 @@ try {
       function frame(now) {
         var p = Math.min((now - start) / dur, 1);
         var eased = 1 - Math.pow(1 - p, 3);
-        var v = (target * eased).toFixed(decimals);
-        if (decimals === 0) v = Number(v).toLocaleString('en-AU');
+        var v = (target * eased).toLocaleString('en-AU', {
+          minimumFractionDigits: decimals, maximumFractionDigits: decimals
+        });
         el.childNodes[0].nodeValue = prefix + v + suffix;
         if (p < 1) requestAnimationFrame(frame);
       }

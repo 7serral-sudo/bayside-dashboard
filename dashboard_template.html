@@ -803,13 +803,13 @@ __WEB_DEVICE_HTML__
         <div class="kpi-label">Total budget</div>
         <div class="kpi-value num">$50,525.15</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Paid</div>
-        <div class="kpi-value num">$13,879.96</div>
+        <div class="kpi-value num" style="color:var(--good)">$13,879.96</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" data-trend="down">
         <div class="kpi-label">To go</div>
-        <div class="kpi-value num">$36,645.19</div>
+        <div class="kpi-value num" style="color:var(--bad)">$36,645.19</div>
       </div>
     </div>
     <div class="table-shell">
@@ -1058,8 +1058,9 @@ try {
       function frame(now) {
         var p = Math.min((now - start) / dur, 1);
         var eased = 1 - Math.pow(1 - p, 3);
-        var v = (target * eased).toFixed(decimals);
-        if (decimals === 0) v = Number(v).toLocaleString('en-AU');
+        var v = (target * eased).toLocaleString('en-AU', {
+          minimumFractionDigits: decimals, maximumFractionDigits: decimals
+        });
         el.childNodes[0].nodeValue = prefix + v + suffix;
         if (p < 1) requestAnimationFrame(frame);
       }
