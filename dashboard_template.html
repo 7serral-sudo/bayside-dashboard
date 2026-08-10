@@ -420,6 +420,32 @@ table.edm td.pos, .pos { color: var(--good); font-weight: 600; }
 table.edm td.neg, .neg { color: var(--bad); font-weight: 600; }
 table.edm td.mid, .mid { color: var(--warn); font-weight: 600; }
 
+/* ---------- inline order-detail toggle (e.g. mattress orders) ---------- */
+table.edm tr.toggle-row > td { padding: 0; text-align: left; }
+.order-toggle { margin: 0; }
+.order-toggle > summary {
+  cursor: pointer; list-style: none; user-select: none;
+  padding: var(--s3) var(--s4); font-size: var(--t-xs); font-weight: 600;
+  letter-spacing: 0.04em; color: var(--n5);
+}
+.order-toggle > summary::-webkit-details-marker { display: none; }
+.order-toggle > summary::before { content: '▸'; display: inline-block; width: 1em; transition: transform 0.15s; }
+.order-toggle[open] > summary::before { transform: rotate(90deg); }
+.order-toggle > summary:hover { color: var(--n7); }
+table.orders {
+  width: 100%; border-collapse: collapse; font-size: var(--t-xs);
+  border-top: 1px solid var(--line);
+}
+table.orders th {
+  text-align: right; padding: var(--s2) var(--s4);
+  font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--n5);
+  border-bottom: 1px solid var(--line-inner);
+}
+table.orders th:nth-child(-n+3), table.orders td:nth-child(-n+3) { text-align: left; }
+table.orders td { padding: var(--s2) var(--s4); text-align: right; color: var(--n6); }
+table.orders tbody tr + tr td { border-top: 1px solid var(--line-inner); }
+table.orders tfoot td { border-top: 1px solid var(--line); font-weight: 600; color: var(--n7); padding-top: var(--s3); }
+
 /* ---------- footer ---------- */
 footer { border-top: 1px solid var(--line); margin-top: var(--s7); padding-block: var(--s6); }
 footer p { margin: 0; font-size: var(--t-sm); color: var(--n5); text-align: center; }
@@ -799,6 +825,27 @@ __WEB_DEVICE_HTML__
           <tr><td>Cabinetry — TV unit</td><td>$3,000.00</td></tr>
           <tr><td>Upholstery</td><td>$3,300.00</td></tr>
           <tr><td>Mattresses</td><td>$11,776.00</td></tr>
+          <tr class="toggle-row"><td colspan="2">
+            <details class="order-toggle">
+              <summary>6 orders placed · $7,314.84 to date</summary>
+              <table class="orders">
+                <thead>
+                  <tr><th>Order date</th><th>Order #</th><th>Model</th><th>Qty</th><th>Total</th><th>Per unit</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>10 Aug 2026</td><td>250-0395357-0991008</td><td>Duchess 26cm Eurotop</td><td>9</td><td>$1,349.01</td><td>$149.89</td></tr>
+                  <tr><td>30 Jul 2026</td><td>250-3644787-0664623</td><td>Duchess 27cm Eurotop</td><td>10</td><td>$1,840.00</td><td>$184.00</td></tr>
+                  <tr><td>20 Jul 2026</td><td>250-2654008-3753456</td><td>Duchess 27cm Eurotop</td><td>10</td><td>$2,140.00</td><td>$214.00</td></tr>
+                  <tr><td>1 Jul 2026</td><td>250-0516972-4591068</td><td>Duchess 27cm Deluxe</td><td>10</td><td>$1,499.90</td><td>$149.99</td></tr>
+                  <tr><td>11 Jun 2026</td><td>249-5820433-8541434</td><td>Duchess 26cm + 27cm</td><td>2</td><td>$309.98</td><td>$154.99</td></tr>
+                  <tr><td>19 Mar 2026</td><td>249-2402143-5231861</td><td>Giselle 34cm</td><td>1</td><td>$175.95</td><td>$175.95</td></tr>
+                </tbody>
+                <tfoot>
+                  <tr><td colspan="3">Total</td><td>42</td><td>$7,314.84</td><td>$174.16 avg</td></tr>
+                </tfoot>
+              </table>
+            </details>
+          </td></tr>
           <tr><td>Couch</td><td>$1,188.00</td></tr>
           <tr><td>TV</td><td>$928.00</td></tr>
           <tr><td>TV bracket</td><td>$150.00</td></tr>
