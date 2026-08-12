@@ -20,15 +20,7 @@ import sheets_client
 from build_room_type_adr import ROOM_TYPES, ROOM_TYPE_ORDER
 
 def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
-    """Return a coloured HTML string for a KPI sub-label comparison.
-
-    Shows last year's exact figure, plainly labelled as "was X" so it can't
-    be misread as a delta -- that's what "vs last year: ^ 249" did, reading
-    as if 249 were the change itself rather than last year's total. Kept to
-    the raw number (no percentage) on request: simpler to scan than a percent
-    figure, especially where a small base makes the percent swing huge (e.g.
-    2 -> 25 reads as an alarming "+1150%" but is obvious as "was 2").
-    """
+    """Return a coloured HTML string for a KPI sub-label comparison."""
     if current is None or prev is None:
         return f'{label}: n/a'
     green, red = '#3FCF6E', '#F0564A'
@@ -39,7 +31,25 @@ def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
         color = red if higher_is_better else green
         arrow = '↓'
     else:
-        return f'{label}: {fmt_fn(prev)} (=)'
+        return f'{label}: {fmt_fn(prev)}'
+    return f'{label}: <span style="color:{color}">{arrow} {fmt_fn(prev)}</span>'
+
+
+def _web_cmp_html(label, current, prev, fmt_fn=str):
+    """Website Analytics-only KPI sub-label: last year's exact figure,
+    plainly labelled "was X" so it can't be misread as the change itself
+    (which is what "vs last year: ^ 249" did) -- scoped to this section only,
+    per request, rather than changing _cmp_html's format everywhere it's used.
+    """
+    if current is None or prev is None:
+        return f'{label}: n/a'
+    green, red = '#3FCF6E', '#F0564A'
+    if current > prev:
+        color, arrow = green, '↑'
+    elif current < prev:
+        color, arrow = red, '↓'
+    else:
+        return f'{label}: {fmt_fn(prev)}'
     return f'{label}: <span style="color:{color}">{arrow} was {fmt_fn(prev)}</span>'
 
 def _trend(current, prev):
@@ -53,19 +63,20 @@ def _trend(current, prev):
     return 'neutral'
 
 def _web_delta_html(current, prev):
-    """Small inline YoY delta badge used in the Website Analytics breakdown lists."""
-    if prev is None or prev == 0:
+    """Small inline YoY badge used in the Website Analytics breakdown lists:
+    last year's exact count, labelled "was X" and coloured green/red -- not
+    a percentage, since a small base turns into an alarming, hard-to-read
+    swing (e.g. 1 -> 25 as "+2400%") that a plain "was 1" avoids."""
+    if prev is None:
         return ''
     green, red = '#3FCF6E', '#F0564A'
-    diff = current - prev
-    pct = diff / prev * 100
-    if diff > 0:
+    if current > prev:
         color, arrow = green, '↑'
-    elif diff < 0:
+    elif current < prev:
         color, arrow = red, '↓'
     else:
-        return ' <span style="color:#6b7280;font-size:11px">(=)</span>'
-    return f' <span style="color:{color};font-size:11px">({arrow}{abs(pct):.0f}%)</span>'
+        return f' <span style="color:#6b7280;font-size:11px">(was {int(prev)})</span>'
+    return f' <span style="color:{color};font-size:11px">({arrow} was {int(prev)})</span>'
 
 
 def _color_yoy(text):
@@ -813,6 +824,14 @@ def _adr_class(adr, section):
     return _target_class(adr, ADR_TARGET.get(section, ADR_TARGET_DEFAULT))
 
 
+def _goal_note(value, target):
+    """'goal $90.00 · $18.54 short', or '· $2.10 over' once it is met."""
+    gap = value - target
+    word = "over" if gap >= 0 else "short"
+    return (f'goal {fmt_money(target)} · '
+            f'<span class="{_target_class(value, target)}">{fmt_money(abs(gap))} {word}</span>')
+
+
 def _occ_span(occ, section):
     """Coloured percentage for use inline, where the rest of the line is not
     part of the metric (the hero stats sit on a shared comparison line)."""
@@ -1089,6 +1108,10 @@ def build(sheet_id: str | None = None, log=print):
         # would leave nothing for it to parse.
         private_adr_class = _adr_class(room_type_adr["private_adr"], "private")
         pods_adr_class = _adr_class(room_type_adr["pods_adr"], "dorm")
+        # Show the goal beside the rate, and how far off it is -- the gap is the
+        # number worth acting on, and it saves the reader doing the subtraction.
+        private_goal_note = _goal_note(room_type_adr["private_adr"], ADR_TARGET["private"])
+        pods_goal_note = _goal_note(room_type_adr["pods_adr"], ADR_TARGET["dorm"])
         # Build chart data for room type ADR trends
         room_adr_monthly = room_type_adr.get("monthly", {})
         room_adr_labels = room_adr_monthly.get("months", [])
@@ -1101,6 +1124,8 @@ def build(sheet_id: str | None = None, log=print):
         pods_occ = 'n/a'
         private_adr_class = ''
         pods_adr_class = ''
+        private_goal_note = 'n/a'
+        pods_goal_note = 'n/a'
         room_type_cards_html = ""
         room_adr_labels = []
         room_adr_private_data = []
@@ -1136,8 +1161,8 @@ def build(sheet_id: str | None = None, log=print):
         web_device_html = build_web_device_html(web["devices"], web.get("ly_devices"))
         web_top_source_sub = f'{int(top_channel[1])} sessions ({top_channel_pct:.0f}%){_web_delta_html(top_channel[1], ly_channels_map.get(top_channel[0]))}'
         web_top_country_sub = f'{int(top_country[1])} sessions{_web_delta_html(top_country[1], ly_countries_map.get(top_country[0]))}'
-        web_sessions_cmp = _cmp_html(f'vs {web["prev_month_label"]}', web_sessions, web["prev_sessions"], fmt_fn=lambda v: f'{int(v):,}')
-        web_pageviews_cmp = _cmp_html(f'vs {web["prev_month_label"]}', web_pageviews, web["prev_pageviews"], fmt_fn=lambda v: f'{int(v):,}')
+        web_sessions_cmp = _web_cmp_html(f'vs {web["prev_month_label"]}', web_sessions, web["prev_sessions"], fmt_fn=lambda v: f'{int(v):,}')
+        web_pageviews_cmp = _web_cmp_html(f'vs {web["prev_month_label"]}', web_pageviews, web["prev_pageviews"], fmt_fn=lambda v: f'{int(v):,}')
         trend_web_sessions = _trend(web_sessions, web["prev_sessions"])
         trend_web_pageviews = _trend(web_pageviews, web["prev_pageviews"])
     else:
@@ -1277,6 +1302,8 @@ def build(sheet_id: str | None = None, log=print):
         "__GOAL_SHORT__":          goal_str,
         "__ADR_TARGET_PRIVATE__":  f"{ADR_TARGET['private']:.2f}",
         "__ADR_TARGET_DORM__":     f"{ADR_TARGET['dorm']:.2f}",
+        "__ADR_GOAL_PRIVATE__":    private_goal_note,
+        "__ADR_GOAL_POD__":        pods_goal_note,
         "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",
         "__GOAL_PCT__":            goal_pct_str,
         "__GOAL_WIDTH__":          goal_width,
