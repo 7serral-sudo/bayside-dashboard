@@ -332,13 +332,17 @@ def fetch_room_type_adr(service, sheet_id):
         return None
 
 
-def fetch_website_analytics(service, sheet_id):
-    """Aggregates every week's GA4 row that falls within the most recent
-    week's calendar month, so the dashboard shows monthly totals rather
-    than a single week's (smaller, noisier) numbers. Sessions/pageviews
-    sum cleanly; "Users" becomes a sum-of-weekly-users approximation since
-    GA4 weekly snapshots can't be de-duplicated into a true unique-monthly
-    count after the fact."""
+def _fetch_website_analytics_from_sheet(service, sheet_id):
+    """Fallback used when a live GA4 query isn't available. Aggregates every
+    week's GA4 row that falls within the most recent week's calendar month,
+    so the dashboard shows monthly totals rather than a single week's
+    (smaller, noisier) numbers. Sessions/pageviews sum cleanly; "Users"
+    becomes a sum-of-weekly-users approximation since GA4 weekly snapshots
+    can't be de-duplicated into a true unique-monthly count after the fact.
+
+    Because the underlying rows are captured Tuesday-to-Tuesday rather than
+    on calendar-month boundaries, the range this ends up covering can
+    straddle into the previous month (e.g. "29 Jul - 11 Aug" for "August")."""
     rows = _values(service, sheet_id, f"{sheets_client.WEB_TAB}!A3:AK2000")
     if not rows:
         return None
@@ -353,6 +357,27 @@ def fetch_website_analytics(service, sheet_id):
         r for r in rows
         if _date_str(r[0]).split("/")[1:] == [target_month, target_year]
     ] if target_month else [rows[-1]]
+
+    # The actual date range the summed weekly rows cover, so the section
+    # title can say "1-11 Aug 2026" instead of a week count that reads as
+    # ambiguous (does "2 weeks" mean the two most recent weeks, a rolling
+    # 14-day window, or just week 2?). Each row is a 7-day GA4 snapshot
+    # ending on its listed date, so the range starts 6 days before the
+    # earliest included row.
+    date_range = None
+    if month_rows:
+        first_end = _date_str(month_rows[0][0])
+        try:
+            start_d = datetime.strptime(first_end, "%d/%m/%Y").date() - timedelta(days=6)
+            end_d = datetime.strptime(last_date, "%d/%m/%Y").date()
+            if start_d.year == end_d.year and start_d.month == end_d.month:
+                date_range = f"{start_d.day}–{end_d.day} {end_d.strftime('%b')} {end_d.year}"
+            elif start_d.year == end_d.year:
+                date_range = f"{start_d.day} {start_d.strftime('%b')} – {end_d.day} {end_d.strftime('%b')} {end_d.year}"
+            else:
+                date_range = f"{fmt_date_human(start_d.strftime('%d/%m/%Y'))} – {fmt_date_human(last_date)}"
+        except ValueError:
+            date_range = None
 
     sessions = sum(_fnum(r, 1) for r in month_rows)
     users = sum(_fnum(r, 2) for r in month_rows)
@@ -421,6 +446,7 @@ def fetch_website_analytics(service, sheet_id):
     return {
         "month_label": f"{sheets_client.MONTHS[int(target_month) - 1]} {target_year}" if target_month else last_date,
         "weeks_included": len(month_rows),
+        "date_range": date_range,
         "sessions":   sessions,
         "users":      users,
         "pageviews":  pageviews,
@@ -435,6 +461,73 @@ def fetch_website_analytics(service, sheet_id):
         "ly_countries":     ly_country_totals if ly_rows else None,
         "ly_devices":       ly_devices if ly_rows else None,
     }
+
+
+def _fetch_website_analytics_live(week_end_date: date, current_year: int) -> dict:
+    """Live GA4 query for the 1st of the month through week_end_date, compared
+    against the identical calendar dates a year earlier -- an exact date-for-
+    date comparison, unlike the Sheet-based fallback (which sums whichever
+    weekly rows land in the month and can straddle into the previous one,
+    since those rows are captured Tuesday-to-Tuesday, not on calendar-month
+    boundaries)."""
+    from ga4_client import GA4Client, GA4_CHANNELS
+
+    ga4 = GA4Client()
+    month_start = date(current_year, week_end_date.month, 1)
+    ly_start = date(current_year - 1, week_end_date.month, 1)
+    ly_end = date(current_year - 1, week_end_date.month, week_end_date.day)
+
+    traffic = ga4.get_weekly_traffic(month_start, week_end_date)
+    ly_traffic = ga4.get_weekly_traffic(ly_start, ly_end)
+    demo = ga4.get_demographics(month_start, week_end_date)
+    ly_demo = ga4.get_demographics(ly_start, ly_end)
+
+    def _flatten_channels(traffic_result):
+        # Unrecognised channels are normalised to "Other" upstream in
+        # get_weekly_traffic(); fold that into "Unassigned" so the channel
+        # set matches WEB_CHANNELS exactly, same as the Sheet-based path.
+        out = {ch: 0 for ch in GA4_CHANNELS}
+        for ch, vals in traffic_result["channels"].items():
+            out[ch if ch in out else "Unassigned"] += vals["sessions"]
+        return out
+
+    devices = {dv: demo["devices"].get(dv.lower(), 0) for dv in sheets_client.DEVICES}
+    ly_devices = {dv: ly_demo["devices"].get(dv.lower(), 0) for dv in sheets_client.DEVICES}
+
+    if month_start.month == week_end_date.month:
+        date_range = f"{month_start.day}–{week_end_date.day} {week_end_date.strftime('%b')} {week_end_date.year}"
+    else:
+        date_range = f"{fmt_date_human(month_start.strftime('%d/%m/%Y'))} – {fmt_date_human(week_end_date.strftime('%d/%m/%Y'))}"
+    ly_label = f"{ly_start.day}–{ly_end.day} {ly_end.strftime('%b')} {ly_end.year}"
+
+    return {
+        "month_label":      f"{sheets_client.MONTHS[week_end_date.month - 1]} {current_year}",
+        "date_range":       date_range,
+        "sessions":         traffic["total_sessions"],
+        "users":            traffic["total_users"],
+        "pageviews":        traffic["total_pageviews"],
+        "channels":         _flatten_channels(traffic),
+        "countries":        demo["top_countries"],
+        "devices":          devices,
+        "prev_month_label": ly_label,
+        "prev_sessions":    ly_traffic["total_sessions"],
+        "prev_users":       ly_traffic["total_users"],
+        "prev_pageviews":   ly_traffic["total_pageviews"],
+        "ly_channels":      _flatten_channels(ly_traffic),
+        "ly_countries":     dict(ly_demo["top_countries"]),
+        "ly_devices":       ly_devices,
+    }
+
+
+def fetch_website_analytics(service, sheet_id, week_end_date: date, current_year: int, log=print) -> dict | None:
+    """Prefers a live, exact-date-matched GA4 query; falls back to summing
+    the Website Analytics sheet tab (e.g. if GA4 credentials aren't
+    available in this environment) so a build never hard-fails over it."""
+    try:
+        return _fetch_website_analytics_live(week_end_date, current_year)
+    except Exception as e:
+        log(f"  !! Live GA4 fetch failed ({e}) -- falling back to the Website Analytics sheet tab.")
+        return _fetch_website_analytics_from_sheet(service, sheet_id)
 
 
 # ---------------------------------------------------------------------------
@@ -810,8 +903,6 @@ def build(sheet_id: str | None = None, log=print):
     revenue = fetch_revenue(service, sheet_id)
     log("  -> Reading Platform Reviews tab ...")
     reviews = fetch_platform_reviews(service, sheet_id)
-    log("  -> Reading Website Analytics tab ...")
-    web = fetch_website_analytics(service, sheet_id)
     log("  -> Reading Room Type ADR tab ...")
     room_type_adr = fetch_room_type_adr(service, sheet_id)
 
@@ -823,6 +914,9 @@ def build(sheet_id: str | None = None, log=print):
     week_end_str = latest_occ["date"]
     week_end_date = datetime.strptime(week_end_str, "%d/%m/%Y").date()
     current_year = int(week_end_str.split("/")[-1])
+
+    log("  -> Fetching Website Analytics (live GA4) ...")
+    web = fetch_website_analytics(service, sheet_id, week_end_date, current_year, log=log)
 
     if room_type_adr and room_type_adr.get("types"):
         _add_room_type_occupancy(room_type_adr["types"], week_end_date, current_year)
@@ -989,10 +1083,7 @@ def build(sheet_id: str | None = None, log=print):
         # the month their week ENDS in, so the honest label is how many weeks
         # are in hand and the date they run to -- which also matches the
         # "vs same N wks of ..." comparisons beneath it.
-        _n_weeks = web.get("weeks_included") or 0
-        web_title = (f'Website Analytics ({_n_weeks} week'
-                     f'{"" if _n_weeks == 1 else "s"} to {fmt_date_human(week_end_str)})'
-                     if _n_weeks else f'Website Analytics ({web["month_label"]})')
+        web_title = f'Website Analytics ({web["date_range"] or web["month_label"]})'
         web_sessions = int(web["sessions"])
         web_users = int(web["users"])
         web_pageviews = int(web["pageviews"])
