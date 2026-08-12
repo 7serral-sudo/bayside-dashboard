@@ -848,13 +848,11 @@ def _goal_note(value, target):
 
 
 def _goal_note_pct(value, target):
-    """'goal 73% · 6.3 pts over'. Points, not percent: the gap between two
-    percentages is percentage POINTS, and calling it a percentage would imply
-    the wrong denominator."""
+    """'goal 73% · 6.3% over'."""
     gap = value - target
     word = "over" if gap >= 0 else "short"
     return (f'goal <span class="goal-value">{target:.0f}%</span> · '
-            f'<span class="{_target_class(value, target)}">{abs(gap):.1f} pts {word}</span>')
+            f'<span class="{_target_class(value, target)}">{abs(gap):.1f}% {word}</span>')
 
 
 def _occ_span(occ, section):
