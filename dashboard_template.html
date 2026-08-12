@@ -233,6 +233,31 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
   text-align: center;
 }
 
+/* revenue goal, above the hero strip */
+.goal { margin-top: var(--s6); }
+.goal-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s4); margin-bottom: var(--s3);
+}
+.goal-label {
+  font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--n5);
+}
+.goal-pct { font-size: var(--t-sm); font-weight: 700; color: var(--n8); }
+.goal-bar {
+  height: 8px; border-radius: 999px; background: var(--n2);
+  border: 1px solid var(--line); overflow: hidden; position: relative;
+}
+.goal-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+/* Where the year itself has got to, so "ahead" or "behind" is readable at a
+   glance rather than needing the two percentages compared in your head. */
+.goal-pace {
+  position: absolute; top: -3px; bottom: -3px; width: 2px;
+  background: var(--n6); border-radius: 1px;
+}
+.goal-sub { margin-top: var(--s2); font-size: var(--t-xs); color: var(--n5); }
+.goal-sub strong { font-weight: 600; color: var(--n7); }
+
 /* hero stat strip */
 .hero-strip {
   margin-top: var(--s6);
@@ -526,6 +551,18 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
   <!-- ═══════════ LEDE ═══════════ -->
   <div class="wrap lede">
     <h1 class="page-title">Bayside House — Dashboard</h1>
+    <div class="goal">
+      <div class="goal-head">
+        <span class="goal-label">__GOAL_LABEL__</span>
+        <span class="goal-pct num">__GOAL_PCT__</span>
+      </div>
+      <div class="goal-bar" role="img" aria-label="__GOAL_ARIA__">
+        <span style="width:__GOAL_WIDTH__"></span>
+        <i class="goal-pace" style="left:__GOAL_PACE_LEFT__"></i>
+      </div>
+      <div class="goal-sub">__GOAL_SUB__</div>
+    </div>
+
     <div class="hero-strip" role="group" aria-label="Headline year-to-date figures">
       <div class="hero-stat" data-trend="__TREND_REV_YTD__">
         <div class="lbl">Revenue YTD</div>
@@ -543,12 +580,12 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
         <div class="cmp">__ADR_LASTYEAR__</div>
       </div>
       <div class="hero-stat">
-        <div class="lbl">Private room ADR</div>
+        <div class="lbl">Private room ADR YTD</div>
         <div class="val num">__PRIVATE_ROOM_ADR_YTD__</div>
         <div class="cmp">__PRIVATE_ROOM_OCC_YTD__ occupancy · 6 rooms</div>
       </div>
       <div class="hero-stat">
-        <div class="lbl">Pod ADR</div>
+        <div class="lbl">Pod ADR YTD</div>
         <div class="val num">__PODS_ADR_YTD__</div>
         <div class="cmp">__PODS_OCC_YTD__ occupancy · 78 pods</div>
       </div>
@@ -924,6 +961,9 @@ window.DEV_SAMPLES = {
     CHECKINS_WEEK: "48", CHECKINS_LASTWEEK: "vs last week: 48", TREND_CI_WEEK: "neutral",
     WEEK_BOOKINGS: "29", TOTAL_WEEK_BOOKINGS: "58", LONG_TERMERS: "24",
     MTD_MONTH_LABEL: "(Jul)", OCC_MONTH_PCT: "78.1%", OCC_MONTH_LY_PCT: "vs Jul 2025: 23.6%", TREND_OCC_MONTH: "up",
+    GOAL_LABEL: "2026 revenue goal · $900.0k", GOAL_PCT: "60%", GOAL_WIDTH: "60.2%",
+    GOAL_PACE_LEFT: "61.1%", GOAL_ARIA: "60 percent of the $900.0k revenue goal",
+    GOAL_SUB: "<strong>$541.5k</strong> banked · $358.5k to go · 61% of the year gone",
     WEEK_RANGE_NOTE: "Week ending 4 Aug 2026 vs week ending 29 Jul 2026",
     MTD_RANGE_NOTE: "1–4 Aug 2026 vs the same days last year",
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",

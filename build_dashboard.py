@@ -83,6 +83,11 @@ DATA_2025_PATH = os.path.join(SCRIPT_DIR, "data_2025_reference.json")
 # contemporaneous bed count).
 LY_N_BEDS = 83
 
+# Full-year revenue goal. Progress is shown against how far through the year we
+# actually are, because 60% of the goal is ahead in June and behind in October
+# -- the bar carries a pace marker so the two are compared for you.
+REVENUE_GOAL = 900_000.0
+
 # Per-room-type bed counts change as rooms are reconfigured during the year,
 # and neither Cloudbeds nor the sheet records that history -- ROOM_TYPES carries
 # only TODAY's count. Dividing a full year of nights by today's beds is what
@@ -1162,6 +1167,34 @@ def build(sheet_id: str | None = None, log=print):
 
     channels_chart_labels, channels_chart_datasets = build_channels_chart_data(perf_weeks, current_year)
 
+    # -- Revenue goal -------------------------------------------------------
+    # Compared against elapsed time, not just the raw total: hitting 60% of the
+    # goal is ahead of pace in June and behind it in October.
+    goal_pct = (ytd_revenue / REVENUE_GOAL * 100) if REVENUE_GOAL else 0
+    days_in_year = (date(current_year, 12, 31) - date(current_year, 1, 1)).days + 1
+    year_pct = ((week_end_date - date(current_year, 1, 1)).days + 1) / days_in_year * 100
+    goal_remaining = max(REVENUE_GOAL - ytd_revenue, 0)
+    ahead = goal_pct - year_pct
+
+    # A round goal reads better without the trailing .0 that fmt_money_k adds.
+    goal_str = (f"${REVENUE_GOAL / 1000:,.0f}k" if REVENUE_GOAL % 1000 == 0
+                else fmt_money_k(REVENUE_GOAL))
+    goal_label = f"{current_year} revenue goal · {goal_str}"
+    goal_pct_str = f"{goal_pct:.0f}%"
+    goal_width = f"{min(goal_pct, 100):.1f}%"
+    goal_pace_left = f"{min(year_pct, 100):.1f}%"
+    pace_word = "ahead of" if ahead >= 0 else "behind"
+    pace_colour = "#3FCF6E" if ahead >= 0 else "#F0564A"
+    pts = abs(ahead)
+    pts_str = f"{pts:.0f} point{'' if round(pts) == 1 else 's'}"
+    goal_sub = (f"<strong>{fmt_money_k(ytd_revenue)}</strong> banked · "
+                f"{fmt_money_k(goal_remaining)} to go · "
+                f"{year_pct:.0f}% of the year gone, so "
+                f"<span style=\"color:{pace_colour}\">{pts_str} "
+                f"{pace_word} pace</span>")
+    goal_aria = (f"{goal_pct:.0f} percent of the {goal_str} revenue goal, "
+                 f"with {year_pct:.0f} percent of the year elapsed")
+
     # -- Build HTML blocks -------------------------------------------------
     monthly_cards_html = build_monthly_cards_html(occ_monthly, revenue, current_year, ref_2025, week_end_date)
 
@@ -1205,6 +1238,12 @@ def build(sheet_id: str | None = None, log=print):
         "__PRIVATE_ROOM_OCC_YTD__": private_occ,
         "__PODS_OCC_YTD__":        pods_occ,
         "__ROOM_TYPE_CARDS_HTML__": room_type_cards_html,
+        "__GOAL_LABEL__":          goal_label,
+        "__GOAL_PCT__":            goal_pct_str,
+        "__GOAL_WIDTH__":          goal_width,
+        "__GOAL_PACE_LEFT__":      goal_pace_left,
+        "__GOAL_SUB__":            goal_sub,
+        "__GOAL_ARIA__":           goal_aria,
         "__YTD_REVENUE__":         fmt_money_k(ytd_revenue),
         "__YTD_REVENUE_WEEK_LABEL__": ytd_revenue_label,
         "__MTD_REVENUE__":         fmt_money_k(mtd_revenue),
