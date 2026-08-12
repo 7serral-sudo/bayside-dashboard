@@ -594,12 +594,12 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <div class="hero-stat" data-trend="up">
         <div class="lbl">Occupancy YTD</div>
         <div class="val num" id="hero-occ">79.3%</div>
-        <div class="cmp">vs last year: <span style="color:#3FCF6E">↑ 65.1%</span></div>
+        <div class="cmp">vs last year: <span style="color:#3FCF6E">↑ was 65.1%</span></div>
       </div>
       <div class="hero-stat" data-trend="down">
         <div class="lbl">ADR YTD</div>
         <div class="val num" id="hero-adr">$36.47</div>
-        <div class="cmp">vs last year: <span style="color:#F0564A">↓ $38.00</span></div>
+        <div class="cmp">vs last year: <span style="color:#F0564A">↓ was $38.00</span></div>
       </div>
       <div class="hero-stat">
         <div class="lbl">Private room ADR YTD</div>
@@ -624,17 +624,17 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <div class="kpi-card" data-trend="down">
         <div class="kpi-label">Occupancy</div>
         <div class="kpi-value num">58.7%</div>
-        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ 67.0%</span></div>
+        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ was 67.0%</span></div>
       </div>
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Average daily rate</div>
         <div class="kpi-value num">$30.78</div>
-        <div class="kpi-sub">vs last week: <span style="color:#3FCF6E">↑ $29.87</span></div>
+        <div class="kpi-sub">vs last week: <span style="color:#3FCF6E">↑ was $29.87</span></div>
       </div>
       <div class="kpi-card" data-trend="down">
         <div class="kpi-label">Check-ins</div>
         <div class="kpi-value num">32</div>
-        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ 54</span></div>
+        <div class="kpi-sub">vs last week: <span style="color:#F0564A">↓ was 54</span></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Same-week bookings</div>
@@ -664,12 +664,12 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Occupancy</div>
         <div class="kpi-value num">62.1%</div>
-        <div class="kpi-sub">vs last year: <span style="color:#3FCF6E">↑ 36.3%</span></div>
+        <div class="kpi-sub">vs last year: <span style="color:#3FCF6E">↑ was 36.3%</span></div>
       </div>
       <div class="kpi-card" data-trend="down">
         <div class="kpi-label">Average daily rate</div>
         <div class="kpi-value num">$30.38</div>
-        <div class="kpi-sub">vs last year: <span style="color:#F0564A">↓ $37.06</span></div>
+        <div class="kpi-sub">vs last year: <span style="color:#F0564A">↓ was $37.06</span></div>
       </div>
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Revenue</div>
@@ -840,13 +840,13 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
         <div class="kpi-label">Sessions</div>
         <div class="kpi-value num">448</div>
         <div class="kpi-sub">399 users</div>
-        <div class="kpi-sub">vs 1–11 Aug 2025: <span style="color:#3FCF6E">↑ 249</span></div>
+        <div class="kpi-sub">vs 1–11 Aug 2025: <span style="color:#3FCF6E">↑ was 249</span></div>
       </div>
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Page views</div>
         <div class="kpi-value num">711</div>
         <div class="kpi-sub">1.6 per session</div>
-        <div class="kpi-sub">vs 1–11 Aug 2025: <span style="color:#3FCF6E">↑ 321</span></div>
+        <div class="kpi-sub">vs 1–11 Aug 2025: <span style="color:#3FCF6E">↑ was 321</span></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Top source</div>
@@ -1127,6 +1127,7 @@ window.DEV_SAMPLES = {
     WEEK_BOOKINGS: "29", TOTAL_WEEK_BOOKINGS: "58", LONG_TERMERS: "24",
     MTD_MONTH_LABEL: "(Jul)", OCC_MONTH_PCT: "78.1%", OCC_MONTH_LY_PCT: "vs Jul 2025: 23.6%", TREND_OCC_MONTH: "up",
     GOAL_SHORT: "$900k", REVENUE_GOAL_NUM: "900000",
+    ADR_TARGET_PRIVATE: "90.00", ADR_TARGET_DORM: "37.50",
     GOAL_LABEL: "2026 revenue goal · $900.0k", GOAL_PCT: "60%", GOAL_WIDTH: "60.2%",
     GOAL_PACE_LEFT: "61.1%", GOAL_ARIA: "60 percent of the $900.0k revenue goal",
     GOAL_SUB: "<strong>$541.5k</strong> banked · $358.5k to go · 61% of the year gone",
@@ -1548,11 +1549,29 @@ function buildCharts() {
 
   var raOpts = baseOptions(t);
   raOpts.plugins.tooltip.callbacks = { label: function (ctx) { return ' ' + ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2); } };
+  /* The targets are flat by definition; repeating them on every hover would
+     just push the two real series down the tooltip. */
+  raOpts.plugins.tooltip.filter = function (item) { return !item.dataset.isTarget; };
   raOpts.scales.y.ticks.callback = function (v) { return '$' + v; };
+  /* Headroom above the higher target, so a target sitting above every actual
+     value is not clipped off the top of the plot. */
+  var raTargets = [Number('90.00'), Number('37.50')];
+  var raMax = Math.max.apply(null, raTargets.concat(ra.private || [], ra.pods || []));
+  if (isFinite(raMax)) raOpts.scales.y.suggestedMax = raMax * 1.08;
+  /* Dashed and muted so the goal reads as a reference the actual rates are
+     measured against, rather than competing with them as a third series. */
+  function targetLine(label, value, n) {
+    return { label: label, data: new Array(n).fill(value), isTarget: true,
+             borderColor: t.tick, borderWidth: 1.5, borderDash: [3, 4],
+             fill: false, tension: 0, pointRadius: 0, pointHoverRadius: 0, order: 9 };
+  }
+  var raN = (ra.labels || []).length;
   make('roomAdrChart', { type: 'line',
     data: { labels: ra.labels, datasets: [
       lineDataset(t, 'Private rooms', ra.private, true, t.cy, t.cyFill),
-      Object.assign(lineDataset(t, 'Pods', ra.pods, false, t.ly), { borderDash: [] }) ] },
+      Object.assign(lineDataset(t, 'Pods', ra.pods, false, t.ly), { borderDash: [] }),
+      targetLine('Private target $' + raTargets[0].toFixed(2), raTargets[0], raN),
+      targetLine('Pod target $' + raTargets[1].toFixed(2), raTargets[1], raN) ] },
     options: raOpts });
 }
 function rebuildCharts() {

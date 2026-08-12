@@ -1016,6 +1016,7 @@ window.DEV_SAMPLES = {
     WEEK_BOOKINGS: "29", TOTAL_WEEK_BOOKINGS: "58", LONG_TERMERS: "24",
     MTD_MONTH_LABEL: "(Jul)", OCC_MONTH_PCT: "78.1%", OCC_MONTH_LY_PCT: "vs Jul 2025: 23.6%", TREND_OCC_MONTH: "up",
     GOAL_SHORT: "$900k", REVENUE_GOAL_NUM: "900000",
+    ADR_TARGET_PRIVATE: "90.00", ADR_TARGET_DORM: "37.50",
     GOAL_LABEL: "2026 revenue goal · $900.0k", GOAL_PCT: "60%", GOAL_WIDTH: "60.2%",
     GOAL_PACE_LEFT: "61.1%", GOAL_ARIA: "60 percent of the $900.0k revenue goal",
     GOAL_SUB: "<strong>$541.5k</strong> banked · $358.5k to go · 61% of the year gone",
@@ -1437,11 +1438,29 @@ function buildCharts() {
 
   var raOpts = baseOptions(t);
   raOpts.plugins.tooltip.callbacks = { label: function (ctx) { return ' ' + ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2); } };
+  /* The targets are flat by definition; repeating them on every hover would
+     just push the two real series down the tooltip. */
+  raOpts.plugins.tooltip.filter = function (item) { return !item.dataset.isTarget; };
   raOpts.scales.y.ticks.callback = function (v) { return '$' + v; };
+  /* Headroom above the higher target, so a target sitting above every actual
+     value is not clipped off the top of the plot. */
+  var raTargets = [Number('__ADR_TARGET_PRIVATE__'), Number('__ADR_TARGET_DORM__')];
+  var raMax = Math.max.apply(null, raTargets.concat(ra.private || [], ra.pods || []));
+  if (isFinite(raMax)) raOpts.scales.y.suggestedMax = raMax * 1.08;
+  /* Dashed and muted so the goal reads as a reference the actual rates are
+     measured against, rather than competing with them as a third series. */
+  function targetLine(label, value, n) {
+    return { label: label, data: new Array(n).fill(value), isTarget: true,
+             borderColor: t.tick, borderWidth: 1.5, borderDash: [3, 4],
+             fill: false, tension: 0, pointRadius: 0, pointHoverRadius: 0, order: 9 };
+  }
+  var raN = (ra.labels || []).length;
   make('roomAdrChart', { type: 'line',
     data: { labels: ra.labels, datasets: [
       lineDataset(t, 'Private rooms', ra.private, true, t.cy, t.cyFill),
-      Object.assign(lineDataset(t, 'Pods', ra.pods, false, t.ly), { borderDash: [] }) ] },
+      Object.assign(lineDataset(t, 'Pods', ra.pods, false, t.ly), { borderDash: [] }),
+      targetLine('Private target $' + raTargets[0].toFixed(2), raTargets[0], raN),
+      targetLine('Pod target $' + raTargets[1].toFixed(2), raTargets[1], raN) ] },
     options: raOpts });
 }
 function rebuildCharts() {

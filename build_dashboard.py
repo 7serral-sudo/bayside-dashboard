@@ -20,7 +20,15 @@ import sheets_client
 from build_room_type_adr import ROOM_TYPES, ROOM_TYPE_ORDER
 
 def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
-    """Return a coloured HTML string for a KPI sub-label comparison."""
+    """Return a coloured HTML string for a KPI sub-label comparison.
+
+    Shows last year's exact figure, plainly labelled as "was X" so it can't
+    be misread as a delta -- that's what "vs last year: ^ 249" did, reading
+    as if 249 were the change itself rather than last year's total. Kept to
+    the raw number (no percentage) on request: simpler to scan than a percent
+    figure, especially where a small base makes the percent swing huge (e.g.
+    2 -> 25 reads as an alarming "+1150%" but is obvious as "was 2").
+    """
     if current is None or prev is None:
         return f'{label}: n/a'
     green, red = '#3FCF6E', '#F0564A'
@@ -31,8 +39,8 @@ def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
         color = red if higher_is_better else green
         arrow = '↓'
     else:
-        return f'{label}: {fmt_fn(prev)}'
-    return f'{label}: <span style="color:{color}">{arrow} {fmt_fn(prev)}</span>'
+        return f'{label}: {fmt_fn(prev)} (=)'
+    return f'{label}: <span style="color:{color}">{arrow} was {fmt_fn(prev)}</span>'
 
 def _trend(current, prev):
     """Return 'up', 'down', or 'neutral' for use as a data-trend attribute."""
@@ -1267,6 +1275,8 @@ def build(sheet_id: str | None = None, log=print):
         "__ROOM_TYPE_CARDS_HTML__": room_type_cards_html,
         "__GOAL_LABEL__":          goal_label,
         "__GOAL_SHORT__":          goal_str,
+        "__ADR_TARGET_PRIVATE__":  f"{ADR_TARGET['private']:.2f}",
+        "__ADR_TARGET_DORM__":     f"{ADR_TARGET['dorm']:.2f}",
         "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",
         "__GOAL_PCT__":            goal_pct_str,
         "__GOAL_WIDTH__":          goal_width,
