@@ -392,8 +392,8 @@ section.block + section.block { border-top: 1px solid var(--line); }
 /* One pair for every target on the page -- occupancy and ADR alike -- so green
    always means "target met". Compound selectors carry enough specificity to
    beat .room-occ, .room-adr and .hero-stat .val, whatever the rule order. */
-.room-occ.on-target,  .room-adr.on-target,  .hero-stat .val.on-target,  .on-target  { color: var(--good); }
-.room-occ.off-target, .room-adr.off-target, .hero-stat .val.off-target, .off-target { color: var(--bad); }
+.room-occ.on-target,  .room-adr.on-target,  .hero-stat .val.on-target,  .yield-total.on-target,  .on-target  { color: var(--good); }
+.room-occ.off-target, .room-adr.off-target, .hero-stat .val.off-target, .yield-total.off-target, .off-target { color: var(--bad); }
 .cmp .on-target, .cmp .off-target { font-weight: 600; }
 .room-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
 .section-note { margin: var(--s5) 0 0; font-size: var(--t-xs); color: var(--n5); }
@@ -482,6 +482,24 @@ table.orders td { padding: var(--s2) var(--s4); text-align: right; color: var(--
 table.orders tbody tr + tr td { border-top: 1px solid var(--line-inner); }
 table.orders tfoot td { border-top: 1px solid var(--line); font-weight: 600; color: var(--n7); padding-top: var(--s3); }
 
+/* ---------- bed yield calculator ---------- */
+.yield-intro { margin: calc(var(--s5) * -1) 0 var(--s5); }
+button.head-link { cursor: pointer; font-family: inherit; }
+table.yield input {
+  width: 100%; max-width: 160px;
+  background: var(--n1); color: var(--n7);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px; font: inherit; font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums lining-nums;
+  transition: border-color 90ms ease;
+}
+table.yield input:hover { border-color: var(--n4); }
+table.yield input:focus-visible { outline: 2px solid var(--n5); outline-offset: 1px; border-color: var(--n4); }
+table.yield td:first-child input { max-width: 200px; }
+table.yield td.calc { color: var(--n6); }
+table.yield tfoot td { border-top: 1px solid var(--line); font-weight: 700; color: var(--n7); padding-block: var(--s4); }
+table.yield tfoot .yield-total { font-size: var(--t-lg); font-weight: 800; }
+
 /* ---------- footer ---------- */
 footer { border-top: 1px solid var(--line); margin-top: var(--s7); padding-block: var(--s6); }
 footer p { margin: 0; font-size: var(--t-sm); color: var(--n5); text-align: center; }
@@ -537,6 +555,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <a href="#week">Week</a>
       <a href="#month">Month</a>
       <a href="#year">Year</a>
+      <a href="#yield">Yield</a>
       <a href="#trends">Trends</a>
       <a href="#web">Web</a>
       <a href="#reviews">Reviews</a>
@@ -791,6 +810,38 @@ __WEB_DEVICE_HTML__
     </div>
   </section>
 
+  <!-- ═══════════ BED YIELD CALCULATOR ═══════════ -->
+  <section class="block wrap reveal" id="yield" aria-labelledby="yield-h">
+    <div class="block-head">
+      <h2 id="yield-h">Bed yield calculator</h2>
+      <button type="button" class="head-link" id="yield-reset">Reset to defaults</button>
+    </div>
+    <p class="note yield-intro">Project annual revenue by bed category — edit any field to recalculate.</p>
+    <div class="table-shell">
+      <table class="edm yield">
+        <thead>
+          <tr>
+            <th scope="col">Category</th>
+            <th scope="col">Beds</th>
+            <th scope="col">Occupancy %</th>
+            <th scope="col">Rate ($/bed/night)</th>
+            <th scope="col">$/night</th>
+            <th scope="col">100% occupancy (annual)</th>
+            <th scope="col">Total (annual)</th>
+          </tr>
+        </thead>
+        <tbody id="yield-rows"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="6">Total</td>
+            <td class="yield-total num" id="yield-total">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="section-note">$/night = beds × rate. Annual at 100% occupancy = $/night × 365. Total = annual at 100% × occupancy %. The total turns green once it reaches the __GOAL_SHORT__ goal. Edit any field to recalculate — changes are saved to this browser only.</p>
+  </section>
+
   <!-- ═══════════ EDM ═══════════ -->
   <section class="block wrap reveal" id="edm" aria-labelledby="edm-h">
     <div class="block-head">
@@ -964,6 +1015,7 @@ window.DEV_SAMPLES = {
     CHECKINS_WEEK: "48", CHECKINS_LASTWEEK: "vs last week: 48", TREND_CI_WEEK: "neutral",
     WEEK_BOOKINGS: "29", TOTAL_WEEK_BOOKINGS: "58", LONG_TERMERS: "24",
     MTD_MONTH_LABEL: "(Jul)", OCC_MONTH_PCT: "78.1%", OCC_MONTH_LY_PCT: "vs Jul 2025: 23.6%", TREND_OCC_MONTH: "up",
+    GOAL_SHORT: "$900k", REVENUE_GOAL_NUM: "900000",
     GOAL_LABEL: "2026 revenue goal · $900.0k", GOAL_PCT: "60%", GOAL_WIDTH: "60.2%",
     GOAL_PACE_LEFT: "61.1%", GOAL_ARIA: "60 percent of the $900.0k revenue goal",
     GOAL_SUB: "<strong>$541.5k</strong> banked · $358.5k to go · 61% of the year gone",
@@ -1058,8 +1110,14 @@ window.addEventListener('DOMContentLoaded', function () {
 });
 
 /* ─── theme ──────────────────────────────────────────────────── */
+/* localStorage THROWS rather than returning null where storage is disabled
+   (private windows, blocked cookies, sandboxed embeds). Unguarded, that killed
+   every script below it -- charts, calculator, trend chips -- so the whole
+   dashboard went static. The preference is a nicety; losing it is fine, losing
+   the page is not. */
 (function () {
-  var stored = localStorage.getItem('bh-theme');
+  var stored = null;
+  try { stored = localStorage.getItem('bh-theme'); } catch (e) {}
   if (stored) document.documentElement.setAttribute('data-theme', stored);
   else if (window.matchMedia('(prefers-color-scheme: light)').matches)
     document.documentElement.setAttribute('data-theme', 'light');
@@ -1068,7 +1126,7 @@ document.getElementById('theme-toggle').addEventListener('click', function () {
   var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
   if (cur === 'light') document.documentElement.setAttribute('data-theme', 'light');
   else document.documentElement.removeAttribute('data-theme');
-  localStorage.setItem('bh-theme', cur);
+  try { localStorage.setItem('bh-theme', cur); } catch (e) {}
   rebuildCharts();
 });
 
@@ -1082,6 +1140,112 @@ function parseNum(str) {
   var m = String(str).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
   return m ? parseFloat(m[0]) : null;
 }
+
+/* ─── bed yield calculator ───────────────────────────────────── */
+try {
+  (function () {
+    var body = document.getElementById('yield-rows');
+    if (!body) return;
+
+    var GOAL = Number('__REVENUE_GOAL_NUM__') || 900000;
+    var STORE = 'bayside-yield-v1';
+    var DEFAULTS = [
+      { name: '4 Bed Dorms',       beds: 16, occ: 72, rate: 46 },
+      { name: '6 and 8 Bed Dorms', beds: 58, occ: 65, rate: 40 },
+      { name: 'Privates',          beds: 6,  occ: 80, rate: 85 }
+    ];
+
+    function money(n) {
+      return '$' + n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function num(v) {
+      var n = parseFloat(v);
+      return isFinite(n) && n >= 0 ? n : 0;
+    }
+
+    /* Anything malformed in storage falls back to the defaults rather than
+       rendering a broken table -- the shape is checked, not just its presence. */
+    function load() {
+      try {
+        var raw = JSON.parse(localStorage.getItem(STORE));
+        if (!Array.isArray(raw) || !raw.length) return DEFAULTS.slice();
+        return raw.map(function (r, i) {
+          var d = DEFAULTS[i] || DEFAULTS[0];
+          return {
+            name: typeof r.name === 'string' ? r.name : d.name,
+            beds: num(r.beds), occ: num(r.occ), rate: num(r.rate)
+          };
+        });
+      } catch (e) { return DEFAULTS.slice(); }
+    }
+    function save(rows) {
+      try { localStorage.setItem(STORE, JSON.stringify(rows)); } catch (e) {}
+    }
+
+    var rows = load();
+
+    function field(value, kind, idx, label) {
+      var attrs = kind === 'name'
+        ? 'type="text"'
+        : 'type="number" min="0" step="' + (kind === 'rate' ? '0.01' : '1') + '"';
+      return '<input ' + attrs + ' value="' + String(value).replace(/"/g, '&quot;') +
+             '" data-idx="' + idx + '" data-kind="' + kind +
+             '" aria-label="' + label + '">';
+    }
+
+    function render() {
+      body.innerHTML = rows.map(function (r, i) {
+        return '<tr>' +
+          '<td>' + field(r.name, 'name', i, 'Category name, row ' + (i + 1)) + '</td>' +
+          '<td>' + field(r.beds, 'beds', i, 'Beds in ' + r.name) + '</td>' +
+          '<td>' + field(r.occ,  'occ',  i, 'Occupancy percent for ' + r.name) + '</td>' +
+          '<td>' + field(r.rate, 'rate', i, 'Rate per bed per night for ' + r.name) + '</td>' +
+          '<td class="calc num" data-cell="night"></td>' +
+          '<td class="calc num" data-cell="full"></td>' +
+          '<td class="num" data-cell="total"><strong></strong></td>' +
+          '</tr>';
+      }).join('');
+      recalc();
+    }
+
+    function recalc() {
+      var total = 0;
+      [].forEach.call(body.rows, function (tr, i) {
+        var r = rows[i];
+        var perNight = r.beds * r.rate;
+        var full = perNight * 365;
+        var actual = full * (r.occ / 100);
+        total += actual;
+        tr.querySelector('[data-cell="night"]').textContent = money(perNight);
+        tr.querySelector('[data-cell="full"]').textContent = money(full);
+        tr.querySelector('[data-cell="total"] strong').textContent = money(actual);
+      });
+      var el = document.getElementById('yield-total');
+      el.textContent = money(total);
+      /* Same rule as every other target on the page: green once it is met. */
+      el.classList.toggle('on-target', total >= GOAL);
+      el.classList.toggle('off-target', total < GOAL);
+    }
+
+    body.addEventListener('input', function (e) {
+      var input = e.target.closest('input');
+      if (!input) return;
+      var i = Number(input.dataset.idx), kind = input.dataset.kind;
+      if (!rows[i]) return;
+      rows[i][kind] = kind === 'name' ? input.value : num(input.value);
+      recalc();
+      save(rows);
+    });
+
+    document.getElementById('yield-reset').addEventListener('click', function () {
+      rows = DEFAULTS.map(function (d) { return { name: d.name, beds: d.beds, occ: d.occ, rate: d.rate }; });
+      try { localStorage.removeItem(STORE); } catch (e) {}
+      render();
+    });
+
+    render();
+  })();
+} catch (e) { console.error('Yield calculator failed', e); }
 
 /* ─── trend chips beside KPI values ──────────────────────────── */
 try {

@@ -1266,6 +1266,8 @@ def build(sheet_id: str | None = None, log=print):
         "__PODS_OCC_YTD__":        pods_occ,
         "__ROOM_TYPE_CARDS_HTML__": room_type_cards_html,
         "__GOAL_LABEL__":          goal_label,
+        "__GOAL_SHORT__":          goal_str,
+        "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",
         "__GOAL_PCT__":            goal_pct_str,
         "__GOAL_WIDTH__":          goal_width,
         "__GOAL_PACE_LEFT__":      goal_pace_left,
