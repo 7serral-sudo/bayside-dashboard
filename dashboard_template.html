@@ -389,9 +389,12 @@ section.block + section.block { border-top: 1px solid var(--line); }
 /* Occupancy reads green at or above its section's target (privates 80%, dorms
    70%) and red below. Compound selectors so the modifier wins over .room-occ's
    own colour regardless of rule order. */
-.room-occ.occ-strong, .occ-strong { color: var(--good); }
-.room-occ.occ-weak,   .occ-weak   { color: var(--bad); }
-.cmp .occ-strong, .cmp .occ-weak { font-weight: 600; }
+/* One pair for every target on the page -- occupancy and ADR alike -- so green
+   always means "target met". Compound selectors carry enough specificity to
+   beat .room-occ, .room-adr and .hero-stat .val, whatever the rule order. */
+.room-occ.on-target,  .room-adr.on-target,  .hero-stat .val.on-target,  .on-target  { color: var(--good); }
+.room-occ.off-target, .room-adr.off-target, .hero-stat .val.off-target, .off-target { color: var(--bad); }
+.cmp .on-target, .cmp .off-target { font-weight: 600; }
 .room-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
 .section-note { margin: var(--s5) 0 0; font-size: var(--t-xs); color: var(--n5); }
 
@@ -581,12 +584,12 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       </div>
       <div class="hero-stat">
         <div class="lbl">Private room ADR YTD</div>
-        <div class="val num">__PRIVATE_ROOM_ADR_YTD__</div>
+        <div class="val num __PRIVATE_ADR_CLASS__">__PRIVATE_ROOM_ADR_YTD__</div>
         <div class="cmp">__PRIVATE_ROOM_OCC_YTD__ occupancy · 6 rooms</div>
       </div>
       <div class="hero-stat">
         <div class="lbl">Pod ADR YTD</div>
-        <div class="val num">__PODS_ADR_YTD__</div>
+        <div class="val num __PODS_ADR_CLASS__">__PODS_ADR_YTD__</div>
         <div class="cmp">__PODS_OCC_YTD__ occupancy · 78 pods</div>
       </div>
     </div>
@@ -969,8 +972,9 @@ window.DEV_SAMPLES = {
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",
     MTD_REVENUE: "$58.9k", MTD_YOY_LABEL: "vs Jul 2025: $36.6k (+61%)", TREND_REV_MONTH: "up",
     PRIVATE_ROOM_ADR_YTD: "$75.76", PODS_ADR_YTD: "$34.47",
-    PRIVATE_ROOM_OCC_YTD: '<span class="occ-strong">82.9%</span>',
-    PODS_OCC_YTD: '<span class="occ-strong">82.3%</span>',
+    PRIVATE_ROOM_OCC_YTD: '<span class="on-target">82.9%</span>',
+    PODS_OCC_YTD: '<span class="on-target">82.3%</span>',
+    PRIVATE_ADR_CLASS: "off-target", PODS_ADR_CLASS: "off-target",
     ROOM_TYPE_CARDS_HTML: (function () {
       var groups = [
         ["Private rooms", ["Deluxe Queen|$77.10|679 nights · 4 beds","Queen with Ensuite|$56.53|213 nights · 1 room","Private (Grd Floor)|$58.64|22 nights · 1 room"]],

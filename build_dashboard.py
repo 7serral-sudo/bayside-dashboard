@@ -781,10 +781,28 @@ def _add_room_type_occupancy(types, week_end_date, current_year):
 OCC_TARGET = {"private": 80.0, "dorm": 70.0}
 OCC_TARGET_DEFAULT = 70.0
 
+# Rate targets underpinning the same goal. A private room has to earn far more
+# per night than a dorm bed, so they are judged separately, exactly as the
+# occupancy targets are.
+ADR_TARGET = {"private": 90.00, "dorm": 37.50}
+ADR_TARGET_DEFAULT = 37.50
+
+
+def _target_class(value, target):
+    """on-target (green) at or above target, off-target (red) below.
+
+    Metric-neutral: the same pair colours occupancy and ADR, so a reader learns
+    one rule -- green means the target is met -- rather than one per metric.
+    """
+    return "on-target" if value >= target else "off-target"
+
 
 def _occ_class(occ, section):
-    target = OCC_TARGET.get(section, OCC_TARGET_DEFAULT)
-    return "occ-strong" if occ >= target else "occ-weak"
+    return _target_class(occ, OCC_TARGET.get(section, OCC_TARGET_DEFAULT))
+
+
+def _adr_class(adr, section):
+    return _target_class(adr, ADR_TARGET.get(section, ADR_TARGET_DEFAULT))
 
 
 def _occ_span(occ, section):
@@ -820,7 +838,7 @@ def build_room_type_cards_html(types):
         tiles = "\n".join(
             f'''          <div class="room-card">
             <div class="room-name">{t["name"]}</div>
-            <div class="room-adr num">{fmt_money(t["adr"])}</div>
+            <div class="room-adr num {_adr_class(t["adr"], t["section"])}">{fmt_money(t["adr"])}</div>
             <div class="room-occ num {_occ_class(t.get("occ", 0), t["section"])}">{t.get("occ", 0):.1f}% occupancy</div>
             <div class="room-sub">{int(t["nights"]):,} nights · {t["beds"]} {"beds" if t["beds"] > 1 else "room"}</div>
           </div>'''
@@ -1058,6 +1076,11 @@ def build(sheet_id: str | None = None, log=print):
         _pods_occ = _section_occupancy(room_type_adr.get("types", []), "dorm")
         private_occ = _occ_span(_private_occ, "private") if _private_occ is not None else 'n/a'
         pods_occ = _occ_span(_pods_occ, "dorm") if _pods_occ is not None else 'n/a'
+        # Class on the element, not a span around the number: the count-up
+        # animation reads the value's first child text node, and wrapping it
+        # would leave nothing for it to parse.
+        private_adr_class = _adr_class(room_type_adr["private_adr"], "private")
+        pods_adr_class = _adr_class(room_type_adr["pods_adr"], "dorm")
         # Build chart data for room type ADR trends
         room_adr_monthly = room_type_adr.get("monthly", {})
         room_adr_labels = room_adr_monthly.get("months", [])
@@ -1068,6 +1091,8 @@ def build(sheet_id: str | None = None, log=print):
         pods_adr = 'n/a'
         private_occ = 'n/a'
         pods_occ = 'n/a'
+        private_adr_class = ''
+        pods_adr_class = ''
         room_type_cards_html = ""
         room_adr_labels = []
         room_adr_private_data = []
@@ -1235,6 +1260,8 @@ def build(sheet_id: str | None = None, log=print):
         "__ADR_LASTYEAR__":        adr_lastyear,
         "__PRIVATE_ROOM_ADR_YTD__": private_adr,
         "__PODS_ADR_YTD__":        pods_adr,
+        "__PRIVATE_ADR_CLASS__":   private_adr_class,
+        "__PODS_ADR_CLASS__":      pods_adr_class,
         "__PRIVATE_ROOM_OCC_YTD__": private_occ,
         "__PODS_OCC_YTD__":        pods_occ,
         "__ROOM_TYPE_CARDS_HTML__": room_type_cards_html,
