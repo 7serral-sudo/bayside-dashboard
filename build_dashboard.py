@@ -806,6 +806,15 @@ OCC_TARGET_DEFAULT = 70.0
 ADR_TARGET = {"private": 90.00, "dorm": 37.50}
 ADR_TARGET_DEFAULT = 37.50
 
+# House-level occupancy goal, derived from the revenue goal rather than picked:
+# hitting the rate targets gives a blended ADR of (78 x $37.50 + 6 x $90.00) / 84
+# = $41.25, and $900k over 84 beds x 365 nights needs $29.35 per available
+# bed-night, so 29.35 / 41.25 = 71%. Rounded up to 73% to cover the ground
+# already lost this year. The per-section targets above (privates 80%, dorms
+# 70%) are a different measure -- how hard each room type works -- and this is
+# the whole property against the revenue goal.
+OCCUPANCY_GOAL = 73.0
+
 
 def _target_class(value, target):
     """on-target (green) at or above target, off-target (red) below.
@@ -836,6 +845,16 @@ def _goal_note(value, target):
     word = "over" if gap >= 0 else "short"
     return (f'goal <span class="goal-value">{fmt_money(target)}</span> · '
             f'<span class="{_target_class(value, target)}">{fmt_money(abs(gap))} {word}</span>')
+
+
+def _goal_note_pct(value, target):
+    """'goal 73% · 6.3 pts over'. Points, not percent: the gap between two
+    percentages is percentage POINTS, and calling it a percentage would imply
+    the wrong denominator."""
+    gap = value - target
+    word = "over" if gap >= 0 else "short"
+    return (f'goal <span class="goal-value">{target:.0f}%</span> · '
+            f'<span class="{_target_class(value, target)}">{abs(gap):.1f} pts {word}</span>')
 
 
 def _occ_span(occ, section):
@@ -1085,6 +1104,8 @@ def build(sheet_id: str | None = None, log=print):
 
     # -- This Year KPIs (vs last year, via the 2025 reference cache) --------
     occ_ytd_pct  = f'{latest_occ["ytd_occ"]:.1f}%'
+    occ_goal_note = _goal_note_pct(latest_occ["ytd_occ"], OCCUPANCY_GOAL)
+    occ_ytd_class = _target_class(latest_occ["ytd_occ"], OCCUPANCY_GOAL)
     adr_ytd      = fmt_money(latest_perf["adr_ytd"])
     if ref_2025:
         ly_ytd_end = date(current_year - 1, week_end_date.month, week_end_date.day)
@@ -1308,6 +1329,8 @@ def build(sheet_id: str | None = None, log=print):
         "__GOAL_SHORT__":          goal_str,
         "__ADR_TARGET_PRIVATE__":  f"{ADR_TARGET['private']:.2f}",
         "__ADR_TARGET_DORM__":     f"{ADR_TARGET['dorm']:.2f}",
+        "__OCC_GOAL_NOTE__":       occ_goal_note,
+        "__OCC_YTD_CLASS__":       occ_ytd_class,
         "__ADR_GOAL_PRIVATE__":    private_goal_note,
         "__ADR_GOAL_POD__":        pods_goal_note,
         "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",

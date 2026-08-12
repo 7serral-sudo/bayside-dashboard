@@ -594,7 +594,8 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       </div>
       <div class="hero-stat" data-trend="__TREND_OCC_YTD__">
         <div class="lbl">Occupancy YTD</div>
-        <div class="val num" id="hero-occ">__OCC_YTD_PCT__</div>
+        <div class="val num __OCC_YTD_CLASS__" id="hero-occ">__OCC_YTD_PCT__</div>
+        <div class="cmp">__OCC_GOAL_NOTE__</div>
         <div class="cmp">__OCC_LASTYEAR_PCT__</div>
       </div>
       <div class="hero-stat" data-trend="__TREND_ADR_YTD__">
@@ -1020,6 +1021,8 @@ window.DEV_SAMPLES = {
     MTD_MONTH_LABEL: "(Jul)", OCC_MONTH_PCT: "78.1%", OCC_MONTH_LY_PCT: "vs Jul 2025: 23.6%", TREND_OCC_MONTH: "up",
     GOAL_SHORT: "$900k", REVENUE_GOAL_NUM: "900000",
     ADR_TARGET_PRIVATE: "90.00", ADR_TARGET_DORM: "37.50",
+    OCC_YTD_CLASS: "on-target",
+    OCC_GOAL_NOTE: 'goal <span class="goal-value">73%</span> · <span class="on-target">6.3 pts over</span>',
     ADR_GOAL_PRIVATE: 'goal <span class="goal-value">$90.00</span> · <span class="off-target">$18.54 short</span>',
     ADR_GOAL_POD: 'goal <span class="goal-value">$37.50</span> · <span class="off-target">$3.61 short</span>',
     GOAL_LABEL: "2026 revenue goal · $900.0k", GOAL_PCT: "60%", GOAL_WIDTH: "60.2%",
