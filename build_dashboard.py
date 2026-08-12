@@ -825,10 +825,16 @@ def _adr_class(adr, section):
 
 
 def _goal_note(value, target):
-    """'goal $90.00 · $18.54 short', or '· $2.10 over' once it is met."""
+    """'goal $90.00 · $18.54 short', or '· $2.10 over' once it is met.
+
+    The goal itself gets its own green class rather than reusing on-target:
+    green has to keep meaning "this metric met its target" where it sits on a
+    value, so the figure being aimed at is marked separately even though it
+    lands on the same colour.
+    """
     gap = value - target
     word = "over" if gap >= 0 else "short"
-    return (f'goal {fmt_money(target)} · '
+    return (f'goal <span class="goal-value">{fmt_money(target)}</span> · '
             f'<span class="{_target_class(value, target)}">{fmt_money(abs(gap))} {word}</span>')
 
 

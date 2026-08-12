@@ -394,7 +394,8 @@ section.block + section.block { border-top: 1px solid var(--line); }
    beat .room-occ, .room-adr and .hero-stat .val, whatever the rule order. */
 .room-occ.on-target,  .room-adr.on-target,  .hero-stat .val.on-target,  .yield-total.on-target,  .on-target  { color: var(--good); }
 .room-occ.off-target, .room-adr.off-target, .hero-stat .val.off-target, .yield-total.off-target, .off-target { color: var(--bad); }
-.cmp .on-target, .cmp .off-target { font-weight: 600; }
+.goal-value { color: var(--good); }
+.cmp .on-target, .cmp .off-target, .cmp .goal-value { font-weight: 600; }
 .room-sub { font-size: var(--t-xs); color: var(--n5); margin-top: var(--s1); }
 .section-note { margin: var(--s5) 0 0; font-size: var(--t-xs); color: var(--n5); }
 
@@ -604,13 +605,13 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <div class="hero-stat">
         <div class="lbl">Private room ADR YTD</div>
         <div class="val num off-target">$71.46</div>
-        <div class="cmp">goal $90.00 · <span class="off-target">$18.54 short</span></div>
+        <div class="cmp">goal <span class="goal-value">$90.00</span> · <span class="off-target">$18.54 short</span></div>
         <div class="cmp"><span class="on-target">82.8%</span> occupancy · 6 rooms</div>
       </div>
       <div class="hero-stat">
         <div class="lbl">Pod ADR YTD</div>
         <div class="val num off-target">$33.89</div>
-        <div class="cmp">goal $37.50 · <span class="off-target">$3.61 short</span></div>
+        <div class="cmp">goal <span class="goal-value">$37.50</span> · <span class="off-target">$3.61 short</span></div>
         <div class="cmp"><span class="on-target">81.5%</span> occupancy · 78 pods</div>
       </div>
     </div>
@@ -1130,8 +1131,8 @@ window.DEV_SAMPLES = {
     MTD_MONTH_LABEL: "(Jul)", OCC_MONTH_PCT: "78.1%", OCC_MONTH_LY_PCT: "vs Jul 2025: 23.6%", TREND_OCC_MONTH: "up",
     GOAL_SHORT: "$900k", REVENUE_GOAL_NUM: "900000",
     ADR_TARGET_PRIVATE: "90.00", ADR_TARGET_DORM: "37.50",
-    ADR_GOAL_PRIVATE: 'goal $90.00 · <span class="off-target">$18.54 short</span>',
-    ADR_GOAL_POD: 'goal $37.50 · <span class="off-target">$3.61 short</span>',
+    ADR_GOAL_PRIVATE: 'goal <span class="goal-value">$90.00</span> · <span class="off-target">$18.54 short</span>',
+    ADR_GOAL_POD: 'goal <span class="goal-value">$37.50</span> · <span class="off-target">$3.61 short</span>',
     GOAL_LABEL: "2026 revenue goal · $900.0k", GOAL_PCT: "60%", GOAL_WIDTH: "60.2%",
     GOAL_PACE_LEFT: "61.1%", GOAL_ARIA: "60 percent of the $900.0k revenue goal",
     GOAL_SUB: "<strong>$541.5k</strong> banked · $358.5k to go · 61% of the year gone",
