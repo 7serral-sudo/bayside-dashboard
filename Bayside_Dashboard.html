@@ -257,6 +257,9 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
 }
 .goal-sub { margin-top: var(--s2); font-size: var(--t-xs); color: var(--n5); }
 .goal-sub strong { font-weight: 600; color: var(--n7); }
+.goal-story { margin-top: var(--s1); font-size: var(--t-xs); color: var(--n5); }
+.goal-story .on-target { color: var(--good); font-weight: 600; }
+.goal-story .off-target { color: var(--bad); font-weight: 600; }
 
 /* hero stat strip */
 .hero-strip {
@@ -584,6 +587,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
         <i class="goal-pace" style="left:61.1%"></i>
       </div>
       <div class="goal-sub"><strong>$541.5k</strong> banked · $358.5k to go</div>
+      <div class="goal-story">Occupancy is <span class="on-target">above</span> its 73% goal, but ADR is <span class="off-target">under target</span> on private rooms and pods — that's why revenue is just behind pace.</div>
     </div>
 
     <div class="hero-strip" role="group" aria-label="Headline year-to-date figures">
@@ -1139,6 +1143,7 @@ window.DEV_SAMPLES = {
     GOAL_LABEL: "2026 revenue goal · $900.0k", GOAL_PCT: "60%", GOAL_WIDTH: "60.2%",
     GOAL_PACE_LEFT: "61.1%", GOAL_ARIA: "60 percent of the $900.0k revenue goal",
     GOAL_SUB: "<strong>$541.5k</strong> banked · $358.5k to go · 61% of the year gone",
+    GOAL_STORY: 'Occupancy is <span class="on-target">above</span> its 73% goal, but ADR is <span class="off-target">under target</span> on both room types — that\'s why revenue is just behind pace.',
     WEEK_RANGE_NOTE: "Week ending 4 Aug 2026 vs week ending 29 Jul 2026",
     MTD_RANGE_NOTE: "1–4 Aug 2026 vs the same days last year",
     ADR_MONTH: "$30.94", ADR_MONTH_LY: "vs Jul 2025: $38.40", TREND_ADR_MONTH: "down",

@@ -1269,6 +1269,32 @@ def build(sheet_id: str | None = None, log=print):
     goal_aria = (f"{goal_pct:.0f} percent of the {goal_str} revenue goal, "
                  f"with {year_pct:.0f} percent of the year elapsed")
 
+    # Plain-English reason revenue is ahead/behind pace: occupancy vs its
+    # house-level goal, ADR vs its per-room-type targets. Only rendered for
+    # the two clean-cut combinations (occupancy meets goal, or every ADR
+    # target is met) -- anything messier (e.g. occupancy short but one of two
+    # ADR targets met) says nothing rather than forcing an ambiguous sentence.
+    goal_story = ""
+    if room_type_adr and room_type_adr.get("private_adr") is not None:
+        occ_hit = latest_occ["ytd_occ"] >= OCCUPANCY_GOAL
+        adr_miss = []
+        if room_type_adr["private_adr"] < ADR_TARGET["private"]:
+            adr_miss.append("private rooms")
+        if room_type_adr["pods_adr"] < ADR_TARGET["dorm"]:
+            adr_miss.append("pods")
+        pace_word = "behind" if goal_pct < year_pct else "ahead of"
+        occ_span = f'<span class="{"on-target" if occ_hit else "off-target"}">{"above" if occ_hit else "below"}</span>'
+        if occ_hit and adr_miss:
+            adr_span = f'<span class="off-target">under target</span> on {" and ".join(adr_miss)}'
+            goal_story = (f"Occupancy is {occ_span} its {OCCUPANCY_GOAL:.0f}% goal, but ADR is {adr_span} "
+                          f"— that's why revenue is just {pace_word} pace.")
+        elif not occ_hit and not adr_miss:
+            goal_story = (f"ADR is <span class=\"on-target\">on target</span>, but occupancy is {occ_span} "
+                          f"its {OCCUPANCY_GOAL:.0f}% goal — that's why revenue is just {pace_word} pace.")
+        elif occ_hit and not adr_miss:
+            goal_story = (f"Occupancy is {occ_span} its {OCCUPANCY_GOAL:.0f}% goal and ADR is "
+                          f"<span class=\"on-target\">on target</span> — revenue is {pace_word} pace.")
+
     # -- Build HTML blocks -------------------------------------------------
     monthly_cards_html = build_monthly_cards_html(occ_monthly, revenue, current_year, ref_2025, week_end_date)
 
@@ -1327,6 +1353,7 @@ def build(sheet_id: str | None = None, log=print):
         "__GOAL_WIDTH__":          goal_width,
         "__GOAL_PACE_LEFT__":      goal_pace_left,
         "__GOAL_SUB__":            goal_sub,
+        "__GOAL_STORY__":          goal_story,
         "__GOAL_ARIA__":           goal_aria,
         "__YTD_REVENUE__":         fmt_money_k(ytd_revenue),
         "__YTD_REVENUE_WEEK_LABEL__": ytd_revenue_label,
