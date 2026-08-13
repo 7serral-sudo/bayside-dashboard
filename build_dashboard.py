@@ -1257,8 +1257,6 @@ def build(sheet_id: str | None = None, log=print):
     days_in_year = (date(current_year, 12, 31) - date(current_year, 1, 1)).days + 1
     year_pct = ((week_end_date - date(current_year, 1, 1)).days + 1) / days_in_year * 100
     goal_remaining = max(REVENUE_GOAL - ytd_revenue, 0)
-    ahead = goal_pct - year_pct
-
     # A round goal reads better without the trailing .0 that fmt_money_k adds.
     goal_str = (f"${REVENUE_GOAL / 1000:,.0f}k" if REVENUE_GOAL % 1000 == 0
                 else fmt_money_k(REVENUE_GOAL))
@@ -1266,15 +1264,8 @@ def build(sheet_id: str | None = None, log=print):
     goal_pct_str = f"{goal_pct:.0f}%"
     goal_width = f"{min(goal_pct, 100):.1f}%"
     goal_pace_left = f"{min(year_pct, 100):.1f}%"
-    pace_word = "ahead of" if ahead >= 0 else "behind"
-    pace_colour = "#3FCF6E" if ahead >= 0 else "#F0564A"
-    pts = abs(ahead)
-    pts_str = f"{pts:.0f} point{'' if round(pts) == 1 else 's'}"
     goal_sub = (f"<strong>{fmt_money_k(ytd_revenue)}</strong> banked · "
-                f"{fmt_money_k(goal_remaining)} to go · "
-                f"{year_pct:.0f}% of the year gone, so "
-                f"<span style=\"color:{pace_colour}\">{pts_str} "
-                f"{pace_word} pace</span>")
+                f"{fmt_money_k(goal_remaining)} to go")
     goal_aria = (f"{goal_pct:.0f} percent of the {goal_str} revenue goal, "
                  f"with {year_pct:.0f} percent of the year elapsed")
 
