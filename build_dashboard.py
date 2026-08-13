@@ -395,7 +395,7 @@ def _fetch_website_analytics_from_sheet(service, sheet_id):
             start_d = datetime.strptime(first_end, "%d/%m/%Y").date() - timedelta(days=6)
             end_d = datetime.strptime(last_date, "%d/%m/%Y").date()
             if start_d.year == end_d.year and start_d.month == end_d.month:
-                date_range = f"{start_d.day}–{end_d.day} {end_d.strftime('%b')} {end_d.year}"
+                date_range = f"{start_d.day} – {end_d.day} {end_d.strftime('%b')} {end_d.year}"
             elif start_d.year == end_d.year:
                 date_range = f"{start_d.day} {start_d.strftime('%b')} – {end_d.day} {end_d.strftime('%b')} {end_d.year}"
             else:
@@ -519,10 +519,10 @@ def _fetch_website_analytics_live(week_end_date: date, current_year: int) -> dic
     ly_devices = {dv: ly_demo["devices"].get(dv.lower(), 0) for dv in sheets_client.DEVICES}
 
     if month_start.month == week_end_date.month:
-        date_range = f"{month_start.day}–{week_end_date.day} {week_end_date.strftime('%b')} {week_end_date.year}"
+        date_range = f"{month_start.day} – {week_end_date.day} {week_end_date.strftime('%b')} {week_end_date.year}"
     else:
         date_range = f"{fmt_date_human(month_start.strftime('%d/%m/%Y'))} – {fmt_date_human(week_end_date.strftime('%d/%m/%Y'))}"
-    ly_label = f"{ly_start.day}–{ly_end.day} {ly_end.strftime('%b')} {ly_end.year}"
+    ly_label = f"{ly_start.day} – {ly_end.day} {ly_end.strftime('%b')} {ly_end.year}"
 
     return {
         "month_label":      f"{sheets_client.MONTHS[week_end_date.month - 1]} {current_year}",
@@ -1031,7 +1031,7 @@ def build(sheet_id: str | None = None, log=print):
     current_month_abbr = sheets_client.MONTHS[week_end_date.month - 1]
     # State the days covered. "This month (Aug)" beside a $6.9k revenue figure
     # reads as a whole month when it is really the first four days of one.
-    mtd_range_note = (f'1–{week_end_date.day} {current_month_abbr} {current_year} '
+    mtd_range_note = (f'1 – {week_end_date.day} {current_month_abbr} {current_year} '
                       f'vs the same days last year')
     occ_month_val = occ_monthly.get(current_month_abbr)
     occ_month_pct = f'{occ_month_val:.1f}%' if occ_month_val is not None else 'n/a'
