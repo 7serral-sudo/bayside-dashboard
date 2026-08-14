@@ -619,7 +619,7 @@ def build_web_channels_html(channels: dict, ly_channels: dict | None = None):
     for ch, sessions in channels.items():
         delta = _web_delta_html(sessions, ly_channels.get(ch) if ly_channels else None)
         rows.append(
-            f'          <div>{ch}: <strong style="color:#3FCF6E">{int(sessions)}</strong>{delta}</div>'
+            f'          <div>{ch}: <strong>{int(sessions)}</strong>{delta}</div>'
         )
     return "\n".join(rows)
 
@@ -631,9 +631,7 @@ def build_web_countries_html(countries: list, ly_countries: dict | None = None):
     for i, (name, sessions) in enumerate(countries):
         delta = _web_delta_html(sessions, ly_countries.get(name) if ly_countries else None)
         rows.append(
-            f'          <div style="display:flex;justify-content:space-between">'
-            f'<span>{i+1}. {name}</span> '
-            f'<span><strong style="color:#3FCF6E">{int(sessions)}</strong>{delta}</span></div>'
+            f'          <div>{i+1}. {name}: <strong>{int(sessions)}</strong>{delta}</div>'
         )
     return "\n".join(rows)
 
@@ -647,7 +645,7 @@ def build_web_device_html(devices: dict, ly_devices: dict | None = None):
         pct = count / total * 100
         delta = _web_delta_html(count, ly_devices.get(dv) if ly_devices else None)
         rows.append(
-            f'          <div>{dv}: <strong style="color:#3FCF6E">{int(count)} ({pct:.0f}%)</strong>{delta}</div>'
+            f'          <div>{dv}: <strong>{int(count)} ({pct:.0f}%)</strong>{delta}</div>'
         )
     return "\n".join(rows)
 
@@ -829,10 +827,6 @@ def _occ_class(occ, section):
     return _target_class(occ, OCC_TARGET.get(section, OCC_TARGET_DEFAULT))
 
 
-def _adr_class(adr, section):
-    return _target_class(adr, ADR_TARGET.get(section, ADR_TARGET_DEFAULT))
-
-
 def _goal_note(value, target):
     """'goal $90.00 · $18.54 short', or '· $2.10 over' once it is met.
 
@@ -888,7 +882,7 @@ def build_room_type_cards_html(types):
         tiles = "\n".join(
             f'''          <div class="room-card">
             <div class="room-name">{t["name"]}</div>
-            <div class="room-adr num {_adr_class(t["adr"], t["section"])}">{fmt_money(t["adr"])}</div>
+            <div class="room-adr num">{fmt_money(t["adr"])}</div>
             <div class="room-occ num {_occ_class(t.get("occ", 0), t["section"])}">{t.get("occ", 0):.1f}% occupancy</div>
             <div class="room-sub">{int(t["nights"]):,} nights · {t["beds"]} {"beds" if t["beds"] > 1 else "room"}</div>
           </div>'''
@@ -1103,7 +1097,6 @@ def build(sheet_id: str | None = None, log=print):
     # -- This Year KPIs (vs last year, via the 2025 reference cache) --------
     occ_ytd_pct  = f'{latest_occ["ytd_occ"]:.1f}%'
     occ_goal_note = _goal_note_pct(latest_occ["ytd_occ"], OCCUPANCY_GOAL)
-    occ_ytd_class = _target_class(latest_occ["ytd_occ"], OCCUPANCY_GOAL)
     adr_ytd      = fmt_money(latest_perf["adr_ytd"])
     if ref_2025:
         ly_ytd_end = date(current_year - 1, week_end_date.month, week_end_date.day)
@@ -1128,11 +1121,6 @@ def build(sheet_id: str | None = None, log=print):
         _pods_occ = _section_occupancy(room_type_adr.get("types", []), "dorm")
         private_occ = _occ_span(_private_occ, "private") if _private_occ is not None else 'n/a'
         pods_occ = _occ_span(_pods_occ, "dorm") if _pods_occ is not None else 'n/a'
-        # Class on the element, not a span around the number: the count-up
-        # animation reads the value's first child text node, and wrapping it
-        # would leave nothing for it to parse.
-        private_adr_class = _adr_class(room_type_adr["private_adr"], "private")
-        pods_adr_class = _adr_class(room_type_adr["pods_adr"], "dorm")
         # Show the goal beside the rate, and how far off it is -- the gap is the
         # number worth acting on, and it saves the reader doing the subtraction.
         private_goal_note = _goal_note(room_type_adr["private_adr"], ADR_TARGET["private"])
@@ -1147,8 +1135,6 @@ def build(sheet_id: str | None = None, log=print):
         pods_adr = 'n/a'
         private_occ = 'n/a'
         pods_occ = 'n/a'
-        private_adr_class = ''
-        pods_adr_class = ''
         private_goal_note = 'n/a'
         pods_goal_note = 'n/a'
         room_type_cards_html = ""
@@ -1335,8 +1321,6 @@ def build(sheet_id: str | None = None, log=print):
         "__ADR_LASTYEAR__":        adr_lastyear,
         "__PRIVATE_ROOM_ADR_YTD__": private_adr,
         "__PODS_ADR_YTD__":        pods_adr,
-        "__PRIVATE_ADR_CLASS__":   private_adr_class,
-        "__PODS_ADR_CLASS__":      pods_adr_class,
         "__PRIVATE_ROOM_OCC_YTD__": private_occ,
         "__PODS_OCC_YTD__":        pods_occ,
         "__ROOM_TYPE_CARDS_HTML__": room_type_cards_html,
@@ -1345,7 +1329,6 @@ def build(sheet_id: str | None = None, log=print):
         "__ADR_TARGET_PRIVATE__":  f"{ADR_TARGET['private']:.2f}",
         "__ADR_TARGET_DORM__":     f"{ADR_TARGET['dorm']:.2f}",
         "__OCC_GOAL_NOTE__":       occ_goal_note,
-        "__OCC_YTD_CLASS__":       occ_ytd_class,
         "__ADR_GOAL_PRIVATE__":    private_goal_note,
         "__ADR_GOAL_POD__":        pods_goal_note,
         "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",
