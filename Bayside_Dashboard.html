@@ -474,6 +474,13 @@ table.orders th {
   border-bottom: 1px solid var(--line-inner);
 }
 table.orders th:nth-child(-n+3), table.orders td:nth-child(-n+3) { text-align: left; }
+/* The footer's "Total" label spans 3 columns via colspan, which shifts
+   every td after it one DOM position earlier than its visual column --
+   nth-child counts DOM children, not colspan-adjusted columns, so
+   :nth-child(-n+3) above was also catching the Qty and Total footer
+   cells and left-aligning them. Force the non-label footer cells back
+   to the same right alignment as the columns above them. */
+table.orders tfoot td:not([colspan]) { text-align: right; }
 .order-progress { padding: 0 var(--s4) var(--s3); }
 .order-progress-bar {
   height: 6px; border-radius: 999px; background: var(--line);
@@ -846,20 +853,20 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
     <div class="cards c4">
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Sessions</div>
-        <div class="kpi-value num">779</div>
-        <div class="kpi-sub">682 users</div>
+        <div class="kpi-value num">756</div>
+        <div class="kpi-sub">660 users</div>
         <div class="kpi-sub">vs 1 – 18 Aug 2025: <span style="color:#3FCF6E">↑ was 415</span></div>
       </div>
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Page views</div>
-        <div class="kpi-value num">1,187</div>
-        <div class="kpi-sub">1.5 per session</div>
+        <div class="kpi-value num">1,195</div>
+        <div class="kpi-sub">1.6 per session</div>
         <div class="kpi-sub">vs 1 – 18 Aug 2025: <span style="color:#3FCF6E">↑ was 545</span></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Top source</div>
         <div class="kpi-value">Organic Search</div>
-        <div class="kpi-sub">376 sessions (48%) <span style="color:#3FCF6E;font-size:11px">(↑ was 172)</span></div>
+        <div class="kpi-sub">377 sessions (50%) <span style="color:#3FCF6E;font-size:11px">(↑ was 172)</span></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Top country</div>
@@ -869,12 +876,12 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
     </div>
     <div class="chart-grid" style="margin-top: var(--s4); grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
       <div class="chart-card"><h3>Sessions by channel</h3><div class="frag-list">
-          <div>Direct: <strong>296</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 158)</span></div>
-          <div>Organic Search: <strong>376</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 172)</span></div>
+          <div>Direct: <strong>297</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 158)</span></div>
+          <div>Organic Search: <strong>377</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 172)</span></div>
           <div>Organic Social: <strong>31</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 10)</span></div>
           <div>Referral: <strong>7</strong> <span style="color:#F0564A;font-size:11px">(↓ was 52)</span></div>
           <div>Paid Other: <strong>7</strong> <span style="color:#F0564A;font-size:11px">(↓ was 10)</span></div>
-          <div>Unassigned: <strong>62</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 13)</span></div>
+          <div>Unassigned: <strong>37</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 13)</span></div>
       </div></div>
       <div class="chart-card"><h3>Top countries</h3><div class="frag-list">
           <div>1. Australia: <strong>452</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 239)</span></div>
@@ -884,7 +891,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
           <div>5. New Zealand: <strong>22</strong></div>
       </div></div>
       <div class="chart-card"><h3>Devices</h3><div class="frag-list">
-          <div>Mobile: <strong>381 (50%)</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 164)</span></div>
+          <div>Mobile: <strong>382 (51%)</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 164)</span></div>
           <div>Desktop: <strong>368 (49%)</strong> <span style="color:#3FCF6E;font-size:11px">(↑ was 242)</span></div>
           <div>Tablet: <strong>6 (1%)</strong> <span style="color:#F0564A;font-size:11px">(↓ was 10)</span></div>
       </div></div>
@@ -1019,15 +1026,15 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
     <div class="cards c3" style="margin-bottom: var(--s4);">
       <div class="kpi-card">
         <div class="kpi-label">Total budget</div>
-        <div class="kpi-value num">$54,333.63</div>
+        <div class="kpi-value num">$58,582.33</div>
       </div>
       <div class="kpi-card" data-trend="up">
         <div class="kpi-label">Paid</div>
-        <div class="kpi-value num" style="color:var(--good)">$16,094.80</div>
+        <div class="kpi-value num" style="color:var(--good)">$19,033.30</div>
       </div>
       <div class="kpi-card" data-trend="down">
         <div class="kpi-label">To go</div>
-        <div class="kpi-value num" style="color:var(--bad)">$38,238.83</div>
+        <div class="kpi-value num" style="color:var(--bad)">$39,549.03</div>
       </div>
     </div>
     <div class="table-shell">
@@ -1037,7 +1044,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
         </thead>
         <tbody>
           <tr><td>Zac and Joel — material only</td><td class="pos">$8,779.96</td></tr>
-          <tr><td>Electrician</td><td class="mid">TBC</td></tr>
+          <tr><td>Electrician</td><td class="pos">$2,938.50</td></tr>
           <tr><td>Painting, filling and staining</td><td>$10,000.00</td></tr>
           <tr><td>Caulking</td><td>$2,000.00</td></tr>
           <tr><td>Cabinetry — reception</td><td>$6,153.19</td></tr>
@@ -1049,7 +1056,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
               <summary>6 orders placed · $7,314.84 to date</summary>
               <div class="order-progress">
                 <div class="order-progress-bar"><span style="width:54%"></span></div>
-                <div class="order-progress-text">$7,314.84 spent of $13,584.00 budget · <strong>$6,269.16 remaining</strong></div>
+                <div class="order-progress-text">42 of 78 mattresses ordered · $7,314.84 spent of $13,584.00 budget · <strong>$6,269.16 remaining</strong></div>
               </div>
               <table class="orders">
                 <thead>
@@ -1069,18 +1076,17 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
               </table>
             </details>
           </td></tr>
-          <tr><td>Couch</td><td>$1,188.00</td></tr>
-          <tr><td>TV</td><td>$928.00</td></tr>
+          <tr><td>Couch</td><td>$2,631.00</td></tr>
+          <tr><td>TV</td><td>$1,295.00</td></tr>
           <tr><td>TV bracket</td><td>$150.00</td></tr>
           <tr><td>Cushions (pillows), decor</td><td>$250.00</td></tr>
           <tr><td>Artwork x 3</td><td>$600.00</td></tr>
           <tr><td>Plants — Jen?</td><td>$100.00</td></tr>
           <tr><td>Coffee tables x 2</td><td>$800.00</td></tr>
-          <tr><td>LED sign</td><td>$500.00</td></tr>
           <tr><td>Building signage</td><td>$3,000.00</td></tr>
-          <tr><td><strong>Total budget</strong></td><td><strong>$54,333.63</strong></td></tr>
-          <tr><td>Paid</td><td class="pos">$16,094.80</td></tr>
-          <tr><td>To go</td><td class="neg">$38,238.83</td></tr>
+          <tr><td><strong>Total budget</strong></td><td><strong>$58,582.33</strong></td></tr>
+          <tr><td>Paid</td><td class="pos">$19,033.30</td></tr>
+          <tr><td>To go</td><td class="neg">$39,549.03</td></tr>
         </tbody>
       </table>
     </div>
