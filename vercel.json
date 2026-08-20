@@ -1,6 +1,7 @@
 {
   "cleanUrls": false,
   "routes": [
+    { "handle": "filesystem" },
     {
       "src": "/(?!.*\\.(js|css|gif|ico|jpg|jpeg|png|svg|webp|woff|woff2|ttf|eot)$).*",
       "dest": "/Bayside_Dashboard.html"

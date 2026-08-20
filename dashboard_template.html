@@ -261,6 +261,55 @@ nav.primary a[aria-current="true"] { color: var(--n7); background: var(--n2); }
 .goal-story .on-target { color: var(--good); font-weight: 600; }
 .goal-story .off-target { color: var(--bad); font-weight: 600; }
 
+/* ---------- notes & focus areas ---------- */
+.notes-composer {
+  display: grid; grid-template-columns: 1fr 2fr auto; gap: var(--s3);
+  align-items: start; margin-bottom: var(--s5);
+}
+.notes-name-input, .notes-text-input {
+  width: 100%; padding: 11px var(--s4);
+  background: var(--n1); color: var(--n7);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font: inherit; font-size: var(--t-sm);
+  transition: border-color 90ms ease;
+}
+.notes-text-input { resize: vertical; min-height: 42px; }
+.notes-name-input::placeholder, .notes-text-input::placeholder { color: var(--n5); }
+.notes-name-input:focus, .notes-text-input:focus { outline: none; border-color: var(--n6); box-shadow: var(--focus); }
+.notes-submit-btn {
+  padding: 11px var(--s5);
+  background: var(--n7); color: var(--n0);
+  border: none; border-radius: var(--radius-sm);
+  font: inherit; font-size: var(--t-sm); font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: transform 90ms ease, opacity 90ms ease;
+}
+.notes-submit-btn:hover { opacity: 0.92; }
+.notes-submit-btn:active { transform: scale(0.985); }
+.notes-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.notes-error {
+  font-size: var(--t-sm); color: var(--bad);
+  background: var(--bad-dim); border-radius: var(--radius-sm);
+  padding: var(--s2) var(--s3); margin-bottom: var(--s4);
+}
+.notes-list { display: flex; flex-direction: column; gap: var(--s3); }
+.notes-empty { font-size: var(--t-sm); color: var(--n5); }
+.note-item {
+  background: var(--n2); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: var(--s4);
+  box-shadow: inset 0 1px 0 var(--line-inner);
+}
+.note-item-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--s3); margin-bottom: var(--s1);
+}
+.note-item-head strong { color: var(--n7); font-size: var(--t-sm); }
+.note-time { font-size: var(--t-xs); color: var(--n5); white-space: nowrap; }
+.note-body { font-size: var(--t-sm); color: var(--n6); white-space: pre-wrap; word-break: break-word; }
+@media (max-width: 640px) {
+  .notes-composer { grid-template-columns: 1fr; }
+}
+
 /* hero stat strip */
 .hero-strip {
   margin-top: var(--s6);
@@ -563,6 +612,7 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       <img src="/bayside-logo.png" alt="Bayside House">
     </a>
     <nav class="primary" aria-label="Sections">
+      <a href="#notes">Notes</a>
       <a href="#week">Week</a>
       <a href="#month">Month</a>
       <a href="#year">Year</a>
@@ -628,6 +678,23 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
       </div>
     </div>
   </div>
+
+  <!-- ═══════════ NOTES ═══════════ -->
+  <section class="block wrap reveal" id="notes" aria-labelledby="notes-h">
+    <div class="block-head">
+      <h2 id="notes-h">Notes &amp; focus areas</h2>
+      <p class="note">Anyone viewing this dashboard can leave a note here</p>
+    </div>
+    <div class="notes-composer">
+      <input type="text" id="notes-name" class="notes-name-input" placeholder="Your name" maxlength="60" autocomplete="off">
+      <textarea id="notes-text" class="notes-text-input" placeholder="What should we focus on?" maxlength="500" rows="2"></textarea>
+      <button type="button" id="notes-submit" class="notes-submit-btn">Add note</button>
+    </div>
+    <div id="notes-error" class="notes-error" role="alert" style="display:none"></div>
+    <div id="notes-list" class="notes-list">
+      <div class="notes-empty">Loading notes…</div>
+    </div>
+  </section>
 
   <!-- ═══════════ THIS WEEK ═══════════ -->
   <section class="block wrap reveal" id="week" aria-labelledby="week-h">
@@ -1322,6 +1389,81 @@ try {
   }, { rootMargin: '0px 0px -8% 0px' });
   els.forEach(function (el) { io.observe(el); });
 } catch (e) { console.error('Reveal-on-scroll failed', e); }
+
+/* ─── notes & focus areas ────────────────────────────────────── */
+try {
+  var notesList = document.getElementById('notes-list');
+  if (notesList) {
+    var notesApi = '/api/notes';
+    var notesName = document.getElementById('notes-name');
+    var notesText = document.getElementById('notes-text');
+    var notesSubmit = document.getElementById('notes-submit');
+    var notesErr = document.getElementById('notes-error');
+
+    var savedName = localStorage.getItem('bh-note-name');
+    if (savedName) notesName.value = savedName;
+
+    var escNote = function (s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    };
+    var timeAgo = function (iso) {
+      var d = new Date(iso);
+      if (isNaN(d)) return '';
+      var mins = Math.round((Date.now() - d.getTime()) / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      var hrs = Math.round(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      return Math.round(hrs / 24) + 'd ago';
+    };
+    var showErr = function (msg) { notesErr.textContent = msg; notesErr.style.display = 'block'; };
+    var hideErr = function () { notesErr.style.display = 'none'; };
+
+    var renderNotes = function (notes) {
+      if (!notes || !notes.length) {
+        notesList.innerHTML = '<div class="notes-empty">No notes yet — be the first to add one.</div>';
+        return;
+      }
+      notesList.innerHTML = notes.map(function (n) {
+        return '<div class="note-item"><div class="note-item-head"><strong>' + escNote(n.name) +
+          '</strong><span class="note-time">' + timeAgo(n.timestamp) + '</span></div>' +
+          '<div class="note-body">' + escNote(n.note) + '</div></div>';
+      }).join('');
+    };
+
+    var loadNotes = function () {
+      fetch(notesApi)
+        .then(function (r) { if (!r.ok) throw new Error('bad status'); return r.json(); })
+        .then(function (data) { renderNotes(data.notes); })
+        .catch(function () { notesList.innerHTML = '<div class="notes-empty">Couldn’t load notes right now.</div>'; });
+    };
+
+    notesSubmit.addEventListener('click', function () {
+      hideErr();
+      var note = notesText.value.trim();
+      var name = notesName.value.trim() || 'Anonymous';
+      if (!note) { showErr('Write a note first.'); return; }
+      notesSubmit.disabled = true;
+      fetch(notesApi, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, note: note }),
+      })
+        .then(function (r) { if (!r.ok) throw new Error('bad status'); return r.json(); })
+        .then(function () {
+          localStorage.setItem('bh-note-name', name);
+          notesText.value = '';
+          loadNotes();
+        })
+        .catch(function () { showErr('Could not save the note — try again.'); })
+        .finally(function () { notesSubmit.disabled = false; });
+    });
+
+    loadNotes();
+  }
+} catch (e) { console.error('Notes failed', e); }
 
 /* ─── scroll-spy nav ─────────────────────────────────────────── */
 try {

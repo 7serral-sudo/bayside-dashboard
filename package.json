@@ -1,0 +1,8 @@
+{
+  "name": "bayside-dashboard",
+  "private": true,
+  "description": "Serverless API for the Bayside House dashboard (currently just /api/notes).",
+  "dependencies": {
+    "googleapis": "^144.0.0"
+  }
+}
