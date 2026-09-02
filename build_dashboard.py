@@ -356,28 +356,31 @@ def fetch_room_type_adr(service, sheet_id):
         return None
 
 
-def fetch_week_room_type_adr(service, sheet_id):
-    """Latest and prior week's private/pod ADR from the "Room Type ADR
-    Weekly" tab, written by weekly_report.py -- a fast Sheet read, unlike
-    the live Cloudbeds fetch that populates it (~60-90s, only run once a
-    week from the weekly pipeline, never from here).
+def fetch_prev_ytd_room_type_adr(service, sheet_id, week_end_date):
+    """Last week's YTD private/pod ADR snapshot, from the "Room Type ADR
+    Weekly" tab written by weekly_report.py -- a fast Sheet read, unlike the
+    live Cloudbeds fetch that populates it (~60-90s, only run once a week
+    from the weekly pipeline, never from here).
 
-    Returns {"private_adr": float|None, "pods_adr": float|None,
-    "prev_private_adr": float|None, "prev_pods_adr": float|None} or None if
-    the tab doesn't exist yet or has fewer than 2 weeks recorded.
+    Compared against fetch_room_type_adr()'s live current YTD figure (the
+    same number the hero stat shows, e.g. "$70.60"), this says whether that
+    YTD figure is climbing or sliding -- a single week's own rate can swing
+    a lot without moving the YTD blend much, so this is deliberately
+    YTD-vs-YTD, not week-vs-week.
+
+    Picks the most recent row strictly before week_end_date rather than
+    just "the second-to-last row", so it's correct whether or not this
+    week's row has already been written by the time this runs.
     """
     try:
-        rows = _values(service, sheet_id, "Room Type ADR Weekly!A2:C1000")
+        rows = _values(service, sheet_id, "Room Type ADR Weekly!A2:E1000")
         rows = [r for r in rows if r and r[0]]
-        if len(rows) < 2:
+        week_end_str = week_end_date.strftime("%d/%m/%Y")
+        prior_rows = [r for r in rows if r[0] != week_end_str]
+        if not prior_rows:
             return None
-        latest, prior = rows[-1], rows[-2]
-        return {
-            "private_adr": _fnum(latest, 1) or None,
-            "pods_adr": _fnum(latest, 2) or None,
-            "prev_private_adr": _fnum(prior, 1) or None,
-            "prev_pods_adr": _fnum(prior, 2) or None,
-        }
+        prior = prior_rows[-1]
+        return {"private_adr": _fnum(prior, 3) or None, "pods_adr": _fnum(prior, 4) or None}
     except Exception:
         return None
 
@@ -998,8 +1001,6 @@ def build(sheet_id: str | None = None, log=print):
     reviews = fetch_platform_reviews(service, sheet_id)
     log("  -> Reading Room Type ADR tab ...")
     room_type_adr = fetch_room_type_adr(service, sheet_id)
-    log("  -> Reading Room Type ADR Weekly tab ...")
-    week_room_type_adr = fetch_week_room_type_adr(service, sheet_id)
 
     if not occ_weeks or not perf_weeks:
         raise RuntimeError("No data found in Occupancy/Performance tabs -- has weekly_report.py run yet?")
@@ -1015,6 +1016,9 @@ def build(sheet_id: str | None = None, log=print):
 
     if room_type_adr and room_type_adr.get("types"):
         _add_room_type_occupancy(room_type_adr["types"], week_end_date, current_year)
+
+    log("  -> Reading Room Type ADR Weekly tab ...")
+    prev_ytd_room_type_adr = fetch_prev_ytd_room_type_adr(service, sheet_id, week_end_date)
 
     occ_monthly = {w["month"]: w["month_occ"] for w in occ_weeks if w["month"] and w["month_occ"] is not None}
     ref_2025 = load_2025_reference()
@@ -1170,15 +1174,16 @@ def build(sheet_id: str | None = None, log=print):
         room_adr_private_data = []
         room_adr_pods_data = []
 
-    # This week's private/pod ADR vs last week's, from the separate weekly
-    # tracker (fast Sheet read) rather than the live Cloudbeds fetch that
-    # populates it -- see fetch_week_room_type_adr / append_week_adr.
-    if week_room_type_adr:
+    # The YTD ADR figure itself (the "$70.60" etc. shown above) vs what it
+    # was as of last week -- says whether that number is climbing or
+    # sliding, which a single week's own rate can't tell you on its own.
+    # See fetch_prev_ytd_room_type_adr / append_week_adr.
+    if room_type_adr and prev_ytd_room_type_adr:
         private_adr_lastweek = _cmp_html(
-            'vs last week', week_room_type_adr["private_adr"], week_room_type_adr["prev_private_adr"],
+            'vs last week', room_type_adr["private_adr"], prev_ytd_room_type_adr["private_adr"],
             fmt_fn=fmt_money)
         pods_adr_lastweek = _cmp_html(
-            'vs last week', week_room_type_adr["pods_adr"], week_room_type_adr["prev_pods_adr"],
+            'vs last week', room_type_adr["pods_adr"], prev_ytd_room_type_adr["pods_adr"],
             fmt_fn=fmt_money)
     else:
         private_adr_lastweek = 'vs last week: n/a'

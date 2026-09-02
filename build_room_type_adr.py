@@ -433,6 +433,27 @@ def write_sheet(monthly: dict, months_present: list[str]):
 WEEK_ADR_TAB = "Room Type ADR Weekly"
 
 
+def ytd_section_adr(monthly: dict, months_present: list[str]) -> dict:
+    """Blended private/pod ADR across every month in `monthly` -- the same
+    roll-up write_sheet()'s YTD row uses, factored out so the weekly
+    snapshot below can reuse it without an extra Cloudbeds fetch (the
+    `monthly` dict passed in already covers the full YTD range)."""
+    totals = {"private": {"nights": 0, "revenue": 0.0}, "dorm": {"nights": 0, "revenue": 0.0}}
+    for mk in months_present:
+        for rt_id, v in monthly[mk].items():
+            if rt_id not in ROOM_TYPES:
+                continue
+            section = ROOM_TYPES[rt_id][2]
+            totals[section]["nights"] += v["nights"]
+            totals[section]["revenue"] += v["revenue"]
+
+    def _adr(section):
+        n = totals[section]["nights"]
+        return round(totals[section]["revenue"] / n, 2) if n else None
+
+    return {"private_adr": _adr("private"), "pods_adr": _adr("dorm")}
+
+
 def fetch_week_section_adr(week_start: date, week_end: date) -> dict:
     """Blended private/pod ADR for a single 7-day window, live from Cloudbeds.
 
@@ -475,13 +496,25 @@ def fetch_week_section_adr(week_start: date, week_end: date) -> dict:
         n = totals[section]["nights"]
         return round(totals[section]["revenue"] / n, 2) if n else None
 
-    return {"private_adr": _adr("private"), "pods_adr": _adr("dorm")}
+    return {
+        "private_adr": _adr("private"), "pods_adr": _adr("dorm"),
+        "private_nights": totals["private"]["nights"], "private_revenue": totals["private"]["revenue"],
+        "pods_nights": totals["dorm"]["nights"], "pods_revenue": totals["dorm"]["revenue"],
+    }
 
 
-def append_week_adr(week_end: date, private_adr, pods_adr, log=print):
+def append_week_adr(week_end: date, private_adr, pods_adr, private_ytd_adr, pods_ytd_adr, log=print):
     """Appends one row to the "Room Type ADR Weekly" tab, skipping if this
     week_end is already recorded (same duplicate-row guard used for
-    Occupancy/Performance/Reviews/Website Analytics)."""
+    Occupancy/Performance/Reviews/Website Analytics).
+
+    Stores both this single week's blended ADR AND the running YTD ADR as
+    of this week -- they answer different questions. The week figure says
+    how this week alone traded; the YTD snapshot lets next week's dashboard
+    show whether the YTD number itself (the one actually displayed, e.g.
+    "$70.60") is climbing or sliding, which a single week's ADR can't tell
+    you on its own.
+    """
     sheet_id = os.environ.get("GOOGLE_SHEET_ID")
     service = sheets_client._build_service()
     existing = sheets_client._get_tabs(service, sheet_id)
@@ -499,15 +532,16 @@ def append_week_adr(week_end: date, private_adr, pods_adr, log=print):
     if not existing_dates:
         service.spreadsheets().values().update(
             spreadsheetId=sheet_id, range=f"{WEEK_ADR_TAB}!A1", valueInputOption="RAW",
-            body={"values": [["Week ending", "Private ADR", "Pod ADR"]]},
+            body={"values": [["Week ending", "Private ADR", "Pod ADR", "Private ADR YTD", "Pod ADR YTD"]]},
         ).execute()
 
     service.spreadsheets().values().append(
-        spreadsheetId=sheet_id, range=f"{WEEK_ADR_TAB}!A2:C",
+        spreadsheetId=sheet_id, range=f"{WEEK_ADR_TAB}!A2:E",
         valueInputOption="RAW", insertDataOption="INSERT_ROWS",
-        body={"values": [[week_end_str, private_adr, pods_adr]]},
+        body={"values": [[week_end_str, private_adr, pods_adr, private_ytd_adr, pods_ytd_adr]]},
     ).execute()
-    log(f"  -> Room Type ADR Weekly: {week_end_str} private ${private_adr} · pods ${pods_adr}")
+    log(f"  -> Room Type ADR Weekly: {week_end_str} private ${private_adr} (YTD ${private_ytd_adr}) "
+        f"· pods ${pods_adr} (YTD ${pods_ytd_adr})")
 
 
 def main():
