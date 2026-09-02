@@ -586,6 +586,15 @@ def main():
             log(f"  -> Room Type ADR updated ({len(months_present)} months)")
         except Exception as exc:
             log(f"  WARNING: Room Type ADR update failed -- {exc}")
+
+        log("Updating weekly private/pod ADR (for the dashboard's \"vs last week\" comparison) ...")
+        try:
+            week_start = week_end - timedelta(days=6)
+            week_adr = build_room_type_adr.fetch_week_section_adr(week_start, week_end)
+            build_room_type_adr.append_week_adr(
+                week_end, week_adr["private_adr"], week_adr["pods_adr"], log=log)
+        except Exception as exc:
+            log(f"  WARNING: Weekly Room Type ADR update failed -- {exc}")
     else:
         log("GOOGLE_SHEET_ID not set -- skipping sheet write.")
 

@@ -356,6 +356,32 @@ def fetch_room_type_adr(service, sheet_id):
         return None
 
 
+def fetch_week_room_type_adr(service, sheet_id):
+    """Latest and prior week's private/pod ADR from the "Room Type ADR
+    Weekly" tab, written by weekly_report.py -- a fast Sheet read, unlike
+    the live Cloudbeds fetch that populates it (~60-90s, only run once a
+    week from the weekly pipeline, never from here).
+
+    Returns {"private_adr": float|None, "pods_adr": float|None,
+    "prev_private_adr": float|None, "prev_pods_adr": float|None} or None if
+    the tab doesn't exist yet or has fewer than 2 weeks recorded.
+    """
+    try:
+        rows = _values(service, sheet_id, "Room Type ADR Weekly!A2:C1000")
+        rows = [r for r in rows if r and r[0]]
+        if len(rows) < 2:
+            return None
+        latest, prior = rows[-1], rows[-2]
+        return {
+            "private_adr": _fnum(latest, 1) or None,
+            "pods_adr": _fnum(latest, 2) or None,
+            "prev_private_adr": _fnum(prior, 1) or None,
+            "prev_pods_adr": _fnum(prior, 2) or None,
+        }
+    except Exception:
+        return None
+
+
 def _fetch_website_analytics_from_sheet(service, sheet_id):
     """Fallback used when a live GA4 query isn't available. Aggregates every
     week's GA4 row that falls within the most recent week's calendar month,
@@ -972,6 +998,8 @@ def build(sheet_id: str | None = None, log=print):
     reviews = fetch_platform_reviews(service, sheet_id)
     log("  -> Reading Room Type ADR tab ...")
     room_type_adr = fetch_room_type_adr(service, sheet_id)
+    log("  -> Reading Room Type ADR Weekly tab ...")
+    week_room_type_adr = fetch_week_room_type_adr(service, sheet_id)
 
     if not occ_weeks or not perf_weeks:
         raise RuntimeError("No data found in Occupancy/Performance tabs -- has weekly_report.py run yet?")
@@ -1141,6 +1169,20 @@ def build(sheet_id: str | None = None, log=print):
         room_adr_labels = []
         room_adr_private_data = []
         room_adr_pods_data = []
+
+    # This week's private/pod ADR vs last week's, from the separate weekly
+    # tracker (fast Sheet read) rather than the live Cloudbeds fetch that
+    # populates it -- see fetch_week_room_type_adr / append_week_adr.
+    if week_room_type_adr:
+        private_adr_lastweek = _cmp_html(
+            'vs last week', week_room_type_adr["private_adr"], week_room_type_adr["prev_private_adr"],
+            fmt_fn=fmt_money)
+        pods_adr_lastweek = _cmp_html(
+            'vs last week', week_room_type_adr["pods_adr"], week_room_type_adr["prev_pods_adr"],
+            fmt_fn=fmt_money)
+    else:
+        private_adr_lastweek = 'vs last week: n/a'
+        pods_adr_lastweek = 'vs last week: n/a'
 
     # -- Reviews ------------------------------------------------------------
     reviews = reviews or {}
@@ -1331,6 +1373,8 @@ def build(sheet_id: str | None = None, log=print):
         "__OCC_GOAL_NOTE__":       occ_goal_note,
         "__ADR_GOAL_PRIVATE__":    private_goal_note,
         "__ADR_GOAL_POD__":        pods_goal_note,
+        "__PRIVATE_ADR_LASTWEEK__": private_adr_lastweek,
+        "__PODS_ADR_LASTWEEK__":    pods_adr_lastweek,
         "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",
         "__GOAL_PCT__":            goal_pct_str,
         "__GOAL_WIDTH__":          goal_width,
