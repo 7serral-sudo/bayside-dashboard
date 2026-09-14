@@ -391,6 +391,44 @@ def build_sheet_row(s: dict, week_start: date, week_end: date) -> list:
     ]
 
 
+DIRECT_CONVERSIONS_TAB = "Direct Conversions"
+
+
+def write_direct_conversions(results: list[dict], log=print):
+    """Overwrites the "Direct Conversions" tab with the current snapshot of
+    long-termers manually switched off OTA billing (per staff "Extend
+    Direct" reservation notes -- see cloudbeds_client.find_direct_conversions).
+
+    Full overwrite, not append -- unlike the weekly ADR trend tab, this is a
+    live snapshot of who's currently converted, not a running history, so a
+    guest whose note gets removed (or who checks out and drops off the
+    long-termers list) should disappear next run rather than leave a stale row.
+    """
+    sheet_id = os.environ.get("GOOGLE_SHEET_ID")
+    service = sheets_client._build_service()
+    existing = sheets_client._get_tabs(service, sheet_id)
+    sheets_client._ensure_tab(service, sheet_id, DIRECT_CONVERSIONS_TAB, existing)
+    sheets_client._clear_tab(service, sheet_id, DIRECT_CONVERSIONS_TAB)
+
+    rows = [["Guest", "Source", "Nights", "Switch Date", "Switch Date Exact",
+              "Revenue Reclaimed", "Total Paid", "Checkout"]]
+    for r in results:
+        rows.append([
+            r["name"], r["source"], r["nights"],
+            r["switch_date"].strftime("%d/%m/%Y"),
+            "Yes" if r["switch_date_is_exact"] else "No",
+            r["revenue_since_switch"], r["total_paid"],
+            r["checkout"].strftime("%d/%m/%Y"),
+        ])
+
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id, range=f"{DIRECT_CONVERSIONS_TAB}!A1",
+        valueInputOption="RAW", body={"values": rows},
+    ).execute()
+    total = sum(r["revenue_since_switch"] for r in results)
+    log(f"  -> Direct Conversions: {len(results)} guests, ${total:,.2f} reclaimed from OTA-attributed revenue")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -601,6 +639,13 @@ def main():
                 ytd_adr["private_adr"], ytd_adr["pods_adr"], log=log)
         except Exception as exc:
             log(f"  WARNING: Weekly Room Type ADR update failed -- {exc}")
+
+        log("Updating direct-booking conversions (long-termers switched off OTA billing) ...")
+        try:
+            conversions = client.find_direct_conversions(week_end, min_nights=LONG_TERM_NIGHTS)
+            write_direct_conversions(conversions, log=log)
+        except Exception as exc:
+            log(f"  WARNING: Direct Conversions update failed -- {exc}")
     else:
         log("GOOGLE_SHEET_ID not set -- skipping sheet write.")
 

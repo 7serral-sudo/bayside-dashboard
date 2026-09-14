@@ -385,6 +385,41 @@ def fetch_prev_ytd_room_type_adr(service, sheet_id, week_end_date):
         return None
 
 
+def fetch_direct_conversions(service, sheet_id):
+    """The current snapshot from the "Direct Conversions" tab -- guests
+    who've been manually switched off OTA billing (staff "Extend Direct"
+    notes), still counted as Booking.com/Hostelworld revenue everywhere else.
+    Fast Sheet read only; the live Cloudbeds scan that builds this tab runs
+    once a week from weekly_report.py, never from here.
+
+    Returns None if the tab doesn't exist yet (first deploy after this
+    feature ships, before the weekly pipeline has run once).
+    """
+    try:
+        rows = _values(service, sheet_id, "Direct Conversions!A2:H1000")
+        rows = [r for r in rows if r and r[0]]
+        if not rows:
+            return None
+        guests = []
+        for r in rows:
+            guests.append({
+                "name": _fstr(r, 0), "source": _fstr(r, 1),
+                "nights": int(_fnum(r, 2)),
+                "switch_date": _date_str(r[3]) if len(r) > 3 else "",
+                "switch_exact": _fstr(r, 4) == "Yes",
+                "revenue_reclaimed": _fnum(r, 5),
+                "total_paid": _fnum(r, 6),
+            })
+        guests.sort(key=lambda g: -g["revenue_reclaimed"])
+        return {
+            "guests": guests,
+            "count": len(guests),
+            "total_reclaimed": round(sum(g["revenue_reclaimed"] for g in guests), 2),
+        }
+    except Exception:
+        return None
+
+
 def _fetch_website_analytics_from_sheet(service, sheet_id):
     """Fallback used when a live GA4 query isn't available. Aggregates every
     week's GA4 row that falls within the most recent week's calendar month,
@@ -640,6 +675,29 @@ def fmt_date_human(date_str: str) -> str:
 # ---------------------------------------------------------------------------
 # Build dynamic HTML blocks
 # ---------------------------------------------------------------------------
+
+def build_direct_conversions_html(guests: list[dict]):
+    """Table rows for the "Direct Booking Conversions" section -- one row per
+    long-termer staff have manually switched off OTA billing, still counted
+    as Booking.com/Hostelworld revenue everywhere else in this dashboard."""
+    if not guests:
+        return '          <tr><td colspan="5">No conversions recorded yet</td></tr>'
+    rows = []
+    for g in guests:
+        switch_label = fmt_date_human(g["switch_date"]) if g["switch_date"] else "n/a"
+        if not g["switch_exact"]:
+            switch_label += " (approx)"
+        rows.append(
+            '          <tr>'
+            f'<td>{g["name"]}</td>'
+            f'<td>{g["source"]}</td>'
+            f'<td>{g["nights"]}</td>'
+            f'<td>{switch_label}</td>'
+            f'<td class="pos">{fmt_money(g["revenue_reclaimed"])}</td>'
+            '</tr>'
+        )
+    return "\n".join(rows)
+
 
 def build_web_channels_html(channels: dict, ly_channels: dict | None = None):
     if not channels or not any(channels.values()):
@@ -1020,6 +1078,9 @@ def build(sheet_id: str | None = None, log=print):
     log("  -> Reading Room Type ADR Weekly tab ...")
     prev_ytd_room_type_adr = fetch_prev_ytd_room_type_adr(service, sheet_id, week_end_date)
 
+    log("  -> Reading Direct Conversions tab ...")
+    direct_conversions = fetch_direct_conversions(service, sheet_id)
+
     occ_monthly = {w["month"]: w["month_occ"] for w in occ_weeks if w["month"] and w["month_occ"] is not None}
     ref_2025 = load_2025_reference()
 
@@ -1188,6 +1249,21 @@ def build(sheet_id: str | None = None, log=print):
     else:
         private_adr_lastweek = 'vs last week: n/a'
         pods_adr_lastweek = 'vs last week: n/a'
+
+    # -- Direct booking conversions -------------------------------------------
+    # Long-termers staff have manually switched off OTA billing -- still
+    # counted as Booking.com/Hostelworld revenue in every report above, so
+    # this section is the only place that revenue shows up as what it
+    # actually is. See weekly_report.write_direct_conversions /
+    # cloudbeds_client.find_direct_conversions.
+    if direct_conversions:
+        direct_conv_count = str(direct_conversions["count"])
+        direct_conv_total = fmt_money(direct_conversions["total_reclaimed"])
+        direct_conv_rows_html = build_direct_conversions_html(direct_conversions["guests"])
+    else:
+        direct_conv_count = "0"
+        direct_conv_total = fmt_money(0)
+        direct_conv_rows_html = build_direct_conversions_html([])
 
     # -- Reviews ------------------------------------------------------------
     reviews = reviews or {}
@@ -1435,6 +1511,9 @@ def build(sheet_id: str | None = None, log=print):
         "__ROOM_ADR_CHART_LABELS__":   json.dumps(room_adr_labels),
         "__ROOM_ADR_PRIVATE_DATA__":   json.dumps(room_adr_private_data),
         "__ROOM_ADR_PODS_DATA__":      json.dumps(room_adr_pods_data),
+        "__DIRECT_CONV_COUNT__":       direct_conv_count,
+        "__DIRECT_CONV_TOTAL__":       direct_conv_total,
+        "__DIRECT_CONV_ROWS__":        direct_conv_rows_html,
     }
 
     for token, value in tokens.items():

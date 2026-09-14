@@ -5,7 +5,7 @@ import os
 import time
 import requests
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 BASE_URL = "https://hotels.cloudbeds.com/api/v1.2"
 DATAINSIGHTS_URL = "https://api.cloudbeds.com/datainsights/v1.1"
@@ -309,7 +309,9 @@ class CloudbedsClient:
         Guests whose TRUE cumulative stay -- chaining together back-to-back/
         zero-gap reservations under the same guest name -- exceeds min_nights
         and spans target_date. Returns one dict per qualifying guest:
-        {"name", "start", "end", "nights"}, longest stay first.
+        {"name", "start", "end", "nights", "source", "reservation_id"}
+        (source/reservation_id are the chain's most recent booking), longest
+        stay first.
 
         Cloudbeds mints a brand new guestID *and* profileID for every single
         booking, even repeat weekly bookings by the same real person (verified
@@ -337,7 +339,7 @@ class CloudbedsClient:
         query is what actually closes the single-long-reservation gap.
         """
         CANCEL_S = {"cancelled", "canceled", "no_show"}
-        by_name: dict[str, list[tuple[date, date]]] = defaultdict(list)
+        by_name: dict[str, list[tuple[date, date, str, str]]] = defaultdict(list)
 
         def _add(r):
             if str(r.get("status", "")).lower() in CANCEL_S:
@@ -349,7 +351,7 @@ class CloudbedsClient:
                 return
             name = (r.get("guestName") or "").strip()
             if name:
-                by_name[name].append((ci, co))
+                by_name[name].append((ci, co, r.get("sourceName") or "", r.get("reservationID") or ""))
 
         for r in self.get_reservations_overlapping(target_date, target_date):
             _add(r)
@@ -363,7 +365,9 @@ class CloudbedsClient:
 
         results = []
         for name, stays in by_name.items():
-            stays = sorted(set(stays))
+            # sort/dedupe on (start, end) only -- source/reservationID just ride
+            # along with whichever row happens to survive the dedupe for that pair
+            stays = sorted({(ci, co): (ci, co, src, rid) for ci, co, src, rid in stays}.values())
             if not stays:
                 continue
             chains = [[stays[0]]]
@@ -377,7 +381,9 @@ class CloudbedsClient:
                 c_start, c_end = chain[0][0], chain[-1][1]
                 nights = (c_end - c_start).days
                 if c_start <= target_date <= c_end and nights > min_nights:
-                    results.append({"name": name, "start": c_start, "end": c_end, "nights": nights})
+                    last = chain[-1]
+                    results.append({"name": name, "start": c_start, "end": c_end, "nights": nights,
+                                     "source": last[2], "reservation_id": last[3]})
 
         results.sort(key=lambda r: -r["nights"])
         return results
@@ -387,6 +393,109 @@ class CloudbedsClient:
         """Thin wrapper over get_long_termers() for callers that only need
         the count (weekly_report.py's "Long-termers in house" KPI)."""
         return len(self.get_long_termers(target_date, min_nights, lookback_weeks))
+
+    def get_reservation_notes(self, reservation_id: str) -> list[dict]:
+        return self._get("getReservationNotes", {"reservationID": reservation_id}).get("data", [])
+
+    def get_payments(self, reservation_id: str) -> list[dict]:
+        """Non-deleted payment-category transactions for a reservation,
+        oldest first. Each carries transactionDateTime, amount, cardType --
+        no cardID/last-4, so a same-typed card swap (e.g. Mastercard to
+        Mastercard) is invisible here; only a card TYPE change is detectable."""
+        txns = self._get("getTransactions", {"reservationID": reservation_id}).get("data", [])
+        payments = [t for t in txns
+                    if t.get("transactionCategory") == "payment" and not t.get("isDeleted")]
+        payments.sort(key=lambda t: t.get("transactionDateTime", ""))
+        return payments
+
+    def find_direct_conversions(self, target_date: date, min_nights: int = 28,
+                                 lookback_weeks: int = 26,
+                                 extend_tag: str = "extend direct") -> list[dict]:
+        """Long-termers whose reservation notes contain `extend_tag` (staff
+        manually flagging "we now bill this guest directly instead of
+        through the OTA"), with a best-effort switch date and the revenue
+        collected since that date -- money currently counted as
+        Booking.com/HostelWorld/etc. revenue in channel reporting that is
+        actually direct.
+
+        Switch date: the earliest payment whose card type differs from the
+        very first payment's card type, if one exists (a real card-type
+        change is the strongest signal available); otherwise the date the
+        `extend_tag` note was added, which understates the true switch date
+        whenever staff were already collecting direct payments before
+        formally tagging the reservation (seen in practice: ad-hoc "Charged
+        $X" notes for weeks before "Extend Direct" was added).
+
+        Returns one dict per tagged guest: {"name", "source", "nights",
+        "checkout", "switch_date", "switch_date_is_exact", "revenue_since_switch",
+        "total_paid"}, largest revenue_since_switch first.
+        """
+        termers = self.get_long_termers(target_date, min_nights, lookback_weeks)
+        results = []
+        for t in termers:
+            res_id = t["reservation_id"]
+            if not res_id:
+                continue
+            try:
+                notes = self.get_reservation_notes(res_id)
+            except Exception:
+                continue
+            tagged_notes = [n for n in notes if extend_tag in (n.get("reservationNote") or "").lower()]
+            if not tagged_notes:
+                continue
+            note_date = None
+            for n in tagged_notes:
+                try:
+                    d = datetime.strptime(n["dateCreated"][:10], "%Y-%m-%d").date()
+                except (KeyError, ValueError):
+                    continue
+                if note_date is None or d < note_date:
+                    note_date = d
+            if note_date is None:
+                continue
+
+            try:
+                payments = self.get_payments(res_id)
+            except Exception:
+                payments = []
+
+            # OTA-issued virtual cards are always Mastercard (confirmed against
+            # live data); a real guest card can be anything else. So: if the
+            # very first payment already isn't Mastercard, the guest was never
+            # on the virtual card at all and the switch is "from the start" --
+            # not "no signal found", which comparing only against the first
+            # payment's own type would wrongly conclude.
+            switch_date, exact = note_date, False
+            if payments:
+                def _pdate(p):
+                    return datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
+                if payments[0].get("cardType") != "master":
+                    switch_date, exact = _pdate(payments[0]), True
+                else:
+                    for p in payments:
+                        if p.get("cardType") != "master":
+                            switch_date, exact = _pdate(p), True
+                            break
+
+            def _amt(p):
+                try:
+                    return float(p.get("amount") or 0)
+                except (TypeError, ValueError):
+                    return 0.0
+
+            total_paid = sum(_amt(p) for p in payments)
+            since_switch = sum(_amt(p) for p in payments
+                                if (datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
+                                    >= switch_date))
+
+            results.append({
+                "name": t["name"], "source": t["source"], "nights": t["nights"],
+                "checkout": t["end"], "switch_date": switch_date, "switch_date_is_exact": exact,
+                "revenue_since_switch": round(since_switch, 2), "total_paid": round(total_paid, 2),
+            })
+
+        results.sort(key=lambda r: -r["revenue_since_switch"])
+        return results
 
     def get_nightly_counts_for_range(self, date_from: date, date_to: date) -> list[int]:
         """Return occupied bed count for each night from date_from to date_to inclusive."""
