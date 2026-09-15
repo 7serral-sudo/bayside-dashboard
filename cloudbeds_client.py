@@ -449,12 +449,17 @@ class CloudbedsClient:
         1. A manual override in the note itself (see _OVERRIDE_RE above) --
            authoritative, since staff typed it after checking Cloudbeds
            directly for cases the API can't see.
-        2. The earliest payment whose card type differs from the very first
-           payment's card type, if one exists (a real card-type change is
-           the strongest automatic signal available).
-        3. The date the `extend_tag` note was added, which understates the
-           true switch date whenever staff were already collecting direct
-           payments before formally tagging the reservation.
+        2. The reservation's very first payment is always the OTA's own
+           automatic deposit collection (its virtual card); every payment
+           after that was run manually by staff, which only happens once
+           they've taken over billing the guest directly -- so the switch
+           date is simply the SECOND payment's date, and everything from
+           there on is direct revenue. This doesn't depend on card type at
+           all (unlike the old logic), so it isn't fooled by a guest whose
+           own card happens to share a type with the OTA's virtual card.
+        3. If there's no payment beyond the first one yet, the guest has
+           been tagged but nothing's actually been charged directly so far
+           -- $0 reclaimed, switch date approximated as the tag date.
 
         Returns one dict per tagged guest: {"name", "source", "nights",
         "checkout", "switch_date", "switch_date_is_exact", "manual_override",
@@ -514,28 +519,21 @@ class CloudbedsClient:
                 exact = override_date is not None
                 manual_override = True
             else:
-                # OTA-issued virtual cards are always Mastercard (confirmed
-                # against live data); a real guest card can be anything else.
-                # So: if the very first payment already isn't Mastercard, the
-                # guest was never on the virtual card at all and the switch is
-                # "from the start" -- not "no signal found", which comparing
-                # only against the first payment's own type would wrongly
-                # conclude. This still can't separate two cards of the SAME
-                # type (see _OVERRIDE_RE above) -- that's what the override is for.
-                switch_date, exact = note_date, False
-                if payments:
-                    def _pdate(p):
-                        return datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
-                    if payments[0].get("cardType") != "master":
-                        switch_date, exact = _pdate(payments[0]), True
-                    else:
-                        for p in payments:
-                            if p.get("cardType") != "master":
-                                switch_date, exact = _pdate(p), True
-                                break
-                since_switch = sum(_amt(p) for p in payments
-                                    if (datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
-                                        >= switch_date))
+                # payments[0] is always the OTA's own automatic deposit
+                # collection (confirmed live: Dean Carberry's deposit AND
+                # every later charge stayed on the exact same card, because
+                # staff kept re-running the OTA's card rather than the
+                # guest's own -- so card type/number can't tell us anything;
+                # what matters is that every payment past the first one was
+                # entered by hand, which only happens once staff have taken
+                # the guest over for direct billing).
+                if len(payments) >= 2:
+                    switch_date = datetime.strptime(
+                        payments[1]["transactionDateTime"][:10], "%Y-%m-%d").date()
+                    exact = True
+                    since_switch = total_paid - _amt(payments[0])
+                else:
+                    switch_date, exact, since_switch = note_date, False, 0.0
                 manual_override = False
 
             results.append({
