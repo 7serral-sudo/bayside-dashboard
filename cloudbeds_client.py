@@ -2,6 +2,7 @@
 Cloudbeds API client for Bayside House weekly reporting.
 """
 import os
+import re
 import time
 import requests
 from collections import defaultdict
@@ -408,6 +409,32 @@ class CloudbedsClient:
         payments.sort(key=lambda t: t.get("transactionDateTime", ""))
         return payments
 
+    # Card-type inference can't tell two cards of the SAME type apart (e.g. a
+    # guest's own Mastercard vs the OTA's virtual Mastercard both show up
+    # identically in getTransactions -- confirmed live with Cole Woods, who
+    # had $835.28 on his real Mastercard and $27.26 on Booking.com's virtual
+    # Mastercard, invisible to the automatic switch-date logic below). For
+    # those cases staff can check Cloudbeds' Credit Cards tab (which DOES
+    # show cardholder name / virtual-card flag, unlike the API) and write the
+    # confirmed number straight into the reservation note, e.g.:
+    #   Extend Direct $835.28
+    #   Extend Direct $835.28 from 18 Aug 2026
+    # -- overriding the inference entirely once present.
+    _OVERRIDE_RE = re.compile(
+        r"extend direct\D*\$\s?([\d,]+(?:\.\d{1,2})?)"
+        r"(?:\D*?\bfrom\b\s+(\d{1,2}\s+[A-Za-z]+\s+\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}))?",
+        re.IGNORECASE,
+    )
+
+    @staticmethod
+    def _parse_override_date(s: str):
+        for fmt in ("%d %b %Y", "%d %B %Y", "%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(s.strip(), fmt).date()
+            except ValueError:
+                continue
+        return None
+
     def find_direct_conversions(self, target_date: date, min_nights: int = 28,
                                  lookback_weeks: int = 26,
                                  extend_tag: str = "extend direct") -> list[dict]:
@@ -418,17 +445,20 @@ class CloudbedsClient:
         Booking.com/HostelWorld/etc. revenue in channel reporting that is
         actually direct.
 
-        Switch date: the earliest payment whose card type differs from the
-        very first payment's card type, if one exists (a real card-type
-        change is the strongest signal available); otherwise the date the
-        `extend_tag` note was added, which understates the true switch date
-        whenever staff were already collecting direct payments before
-        formally tagging the reservation (seen in practice: ad-hoc "Charged
-        $X" notes for weeks before "Extend Direct" was added).
+        Switch date/amount, in priority order:
+        1. A manual override in the note itself (see _OVERRIDE_RE above) --
+           authoritative, since staff typed it after checking Cloudbeds
+           directly for cases the API can't see.
+        2. The earliest payment whose card type differs from the very first
+           payment's card type, if one exists (a real card-type change is
+           the strongest automatic signal available).
+        3. The date the `extend_tag` note was added, which understates the
+           true switch date whenever staff were already collecting direct
+           payments before formally tagging the reservation.
 
         Returns one dict per tagged guest: {"name", "source", "nights",
-        "checkout", "switch_date", "switch_date_is_exact", "revenue_since_switch",
-        "total_paid"}, largest revenue_since_switch first.
+        "checkout", "switch_date", "switch_date_is_exact", "manual_override",
+        "revenue_since_switch", "total_paid"}, largest revenue_since_switch first.
         """
         termers = self.get_long_termers(target_date, min_nights, lookback_weeks)
         results = []
@@ -459,24 +489,6 @@ class CloudbedsClient:
             except Exception:
                 payments = []
 
-            # OTA-issued virtual cards are always Mastercard (confirmed against
-            # live data); a real guest card can be anything else. So: if the
-            # very first payment already isn't Mastercard, the guest was never
-            # on the virtual card at all and the switch is "from the start" --
-            # not "no signal found", which comparing only against the first
-            # payment's own type would wrongly conclude.
-            switch_date, exact = note_date, False
-            if payments:
-                def _pdate(p):
-                    return datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
-                if payments[0].get("cardType") != "master":
-                    switch_date, exact = _pdate(payments[0]), True
-                else:
-                    for p in payments:
-                        if p.get("cardType") != "master":
-                            switch_date, exact = _pdate(p), True
-                            break
-
             def _amt(p):
                 try:
                     return float(p.get("amount") or 0)
@@ -484,13 +496,52 @@ class CloudbedsClient:
                     return 0.0
 
             total_paid = sum(_amt(p) for p in payments)
-            since_switch = sum(_amt(p) for p in payments
-                                if (datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
-                                    >= switch_date))
+
+            # Manual override wins outright -- check the most recently
+            # created tagged note for a "$X" (staff typed this after checking
+            # Cloudbeds' Credit Cards tab for a split the API can't see).
+            override = None
+            for n in sorted(tagged_notes, key=lambda n: n.get("dateCreated", ""), reverse=True):
+                m = self._OVERRIDE_RE.search(n.get("reservationNote") or "")
+                if m:
+                    override = m
+                    break
+
+            if override:
+                since_switch = float(override.group(1).replace(",", ""))
+                override_date = self._parse_override_date(override.group(2)) if override.group(2) else None
+                switch_date = override_date or note_date
+                exact = override_date is not None
+                manual_override = True
+            else:
+                # OTA-issued virtual cards are always Mastercard (confirmed
+                # against live data); a real guest card can be anything else.
+                # So: if the very first payment already isn't Mastercard, the
+                # guest was never on the virtual card at all and the switch is
+                # "from the start" -- not "no signal found", which comparing
+                # only against the first payment's own type would wrongly
+                # conclude. This still can't separate two cards of the SAME
+                # type (see _OVERRIDE_RE above) -- that's what the override is for.
+                switch_date, exact = note_date, False
+                if payments:
+                    def _pdate(p):
+                        return datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
+                    if payments[0].get("cardType") != "master":
+                        switch_date, exact = _pdate(payments[0]), True
+                    else:
+                        for p in payments:
+                            if p.get("cardType") != "master":
+                                switch_date, exact = _pdate(p), True
+                                break
+                since_switch = sum(_amt(p) for p in payments
+                                    if (datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
+                                        >= switch_date))
+                manual_override = False
 
             results.append({
                 "name": t["name"], "source": t["source"], "nights": t["nights"],
                 "checkout": t["end"], "switch_date": switch_date, "switch_date_is_exact": exact,
+                "manual_override": manual_override,
                 "revenue_since_switch": round(since_switch, 2), "total_paid": round(total_paid, 2),
             })
 

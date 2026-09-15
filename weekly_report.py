@@ -411,7 +411,7 @@ def write_direct_conversions(results: list[dict], log=print):
     sheets_client._clear_tab(service, sheet_id, DIRECT_CONVERSIONS_TAB)
 
     rows = [["Guest", "Source", "Nights", "Switch Date", "Switch Date Exact",
-              "Revenue Reclaimed", "Total Paid", "Checkout"]]
+              "Revenue Reclaimed", "Total Paid", "Checkout", "Manual Override"]]
     for r in results:
         rows.append([
             r["name"], r["source"], r["nights"],
@@ -419,6 +419,7 @@ def write_direct_conversions(results: list[dict], log=print):
             "Yes" if r["switch_date_is_exact"] else "No",
             r["revenue_since_switch"], r["total_paid"],
             r["checkout"].strftime("%d/%m/%Y"),
+            "Yes" if r.get("manual_override") else "No",
         ])
 
     service.spreadsheets().values().update(

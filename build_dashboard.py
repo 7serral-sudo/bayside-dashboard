@@ -396,7 +396,7 @@ def fetch_direct_conversions(service, sheet_id):
     feature ships, before the weekly pipeline has run once).
     """
     try:
-        rows = _values(service, sheet_id, "Direct Conversions!A2:H1000")
+        rows = _values(service, sheet_id, "Direct Conversions!A2:I1000")
         rows = [r for r in rows if r and r[0]]
         if not rows:
             return None
@@ -407,6 +407,7 @@ def fetch_direct_conversions(service, sheet_id):
                 "nights": int(_fnum(r, 2)),
                 "switch_date": _date_str(r[3]) if len(r) > 3 else "",
                 "switch_exact": _fstr(r, 4) == "Yes",
+                "manual_override": _fstr(r, 8) == "Yes",
                 "revenue_reclaimed": _fnum(r, 5),
                 "total_paid": _fnum(r, 6),
             })
@@ -685,7 +686,9 @@ def build_direct_conversions_html(guests: list[dict]):
     rows = []
     for g in guests:
         switch_label = fmt_date_human(g["switch_date"]) if g["switch_date"] else "n/a"
-        if not g["switch_exact"]:
+        if g.get("manual_override"):
+            switch_label += " (manual)"
+        elif not g["switch_exact"]:
             switch_label += " (approx)"
         rows.append(
             '          <tr>'
