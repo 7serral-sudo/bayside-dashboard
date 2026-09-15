@@ -449,17 +449,24 @@ class CloudbedsClient:
         1. A manual override in the note itself (see _OVERRIDE_RE above) --
            authoritative, since staff typed it after checking Cloudbeds
            directly for cases the API can't see.
-        2. The reservation's very first payment is always the OTA's own
-           automatic deposit collection (its virtual card); every payment
-           after that was run manually by staff, which only happens once
-           they've taken over billing the guest directly -- so the switch
-           date is simply the SECOND payment's date, and everything from
-           there on is direct revenue. This doesn't depend on card type at
-           all (unlike the old logic), so it isn't fooled by a guest whose
-           own card happens to share a type with the OTA's virtual card.
-        3. If there's no payment beyond the first one yet, the guest has
-           been tagged but nothing's actually been charged directly so far
-           -- $0 reclaimed, switch date approximated as the tag date.
+        2. Every payment carries a `userName` -- "SYSTEM" marks the OTA's
+           own automatic deposit collection (its virtual card, always
+           tagged "Deposit" too); any other userName means a staff member
+           ran that charge by hand, which only happens once they've taken
+           the guest over for direct billing. So: exclude SYSTEM payments,
+           count everything else as direct. This is NOT the same as "skip
+           the first payment" -- confirmed live that several guests (Sion
+           John Shearer, Gabriele Manfrinato, Josephine Wiederspahn, Bouchet
+           Nicolas, PIN HSUAN HUANG) never had an automatic SYSTEM deposit
+           at all, so their very first payment was already staff-run and
+           fully direct; "skip payment #1" wrongly excluded it for them.
+           Doesn't depend on card type either (unlike the original logic),
+           so it isn't fooled by a guest whose own card happens to share a
+           type with the OTA's virtual card (e.g. Cole Woods).
+        3. If every payment so far is a SYSTEM deposit (nothing staff-run
+           yet), the guest has been tagged but nothing's actually been
+           charged directly so far -- $0 reclaimed, switch date
+           approximated as the tag date.
 
         Returns one dict per tagged guest: {"name", "source", "nights",
         "checkout", "switch_date", "switch_date_is_exact", "manual_override",
@@ -519,19 +526,20 @@ class CloudbedsClient:
                 exact = override_date is not None
                 manual_override = True
             else:
-                # payments[0] is always the OTA's own automatic deposit
-                # collection (confirmed live: Dean Carberry's deposit AND
-                # every later charge stayed on the exact same card, because
-                # staff kept re-running the OTA's card rather than the
-                # guest's own -- so card type/number can't tell us anything;
-                # what matters is that every payment past the first one was
-                # entered by hand, which only happens once staff have taken
-                # the guest over for direct billing).
-                if len(payments) >= 2:
-                    switch_date = datetime.strptime(
-                        payments[1]["transactionDateTime"][:10], "%Y-%m-%d").date()
+                # SYSTEM-run payments are the OTA's own automatic deposit
+                # collection; everything else was entered by hand by staff,
+                # which only happens once they've taken the guest over for
+                # direct billing (see docstring -- this replaced an earlier
+                # "skip the first payment" rule that wrongly excluded staff-
+                # run first payments for guests who never had a SYSTEM
+                # deposit at all).
+                staff_payments = [p for p in payments if (p.get("userName") or "") != "SYSTEM"]
+                if staff_payments:
+                    switch_date = min(
+                        datetime.strptime(p["transactionDateTime"][:10], "%Y-%m-%d").date()
+                        for p in staff_payments)
                     exact = True
-                    since_switch = total_paid - _amt(payments[0])
+                    since_switch = sum(_amt(p) for p in staff_payments)
                 else:
                     switch_date, exact, since_switch = note_date, False, 0.0
                 manual_override = False
