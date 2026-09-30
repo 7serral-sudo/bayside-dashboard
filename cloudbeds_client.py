@@ -305,14 +305,21 @@ class CloudbedsClient:
         return len(data.get("assigned", [])) + len(data.get("unassigned", []))
 
     def get_long_termers(self, target_date: date, min_nights: int = 28,
-                          lookback_weeks: int = 26) -> list[dict]:
+                          lookback_weeks: int = 26, require_active: bool = True) -> list[dict]:
         """
         Guests whose TRUE cumulative stay -- chaining together back-to-back/
-        zero-gap reservations under the same guest name -- exceeds min_nights
-        and spans target_date. Returns one dict per qualifying guest:
-        {"name", "start", "end", "nights", "source", "reservation_id"}
-        (source/reservation_id are the chain's most recent booking), longest
-        stay first.
+        zero-gap reservations under the same guest name -- exceeds min_nights.
+        Returns one dict per qualifying guest: {"name", "start", "end",
+        "nights", "source", "reservation_id"} (source/reservation_id are the
+        chain's most recent booking), longest stay first.
+
+        require_active (default True) additionally requires the stay to span
+        target_date -- i.e. the guest is still actually in house, which is
+        what "long-termers in house" KPIs want. Pass False for a use case
+        that wants everyone who EVER qualified within the lookback window,
+        checked out or not (e.g. find_direct_conversions -- a running record
+        of "guests we've converted to direct billing" shouldn't shrink just
+        because someone checks out; that's a reward tally, not a live count).
 
         Cloudbeds mints a brand new guestID *and* profileID for every single
         booking, even repeat weekly bookings by the same real person (verified
@@ -381,7 +388,8 @@ class CloudbedsClient:
             for chain in chains:
                 c_start, c_end = chain[0][0], chain[-1][1]
                 nights = (c_end - c_start).days
-                if c_start <= target_date <= c_end and nights > min_nights:
+                still_active = c_start <= target_date <= c_end
+                if nights > min_nights and (require_active is False or still_active):
                     last = chain[-1]
                     results.append({"name": name, "start": c_start, "end": c_end, "nights": nights,
                                      "source": last[2], "reservation_id": last[3]})
@@ -468,11 +476,15 @@ class CloudbedsClient:
            charged directly so far -- $0 reclaimed, switch date
            approximated as the tag date.
 
+        This is a running reward tally, not a live snapshot -- a guest stays
+        on the list once tagged, checked out or not, until they age past the
+        lookback window (see get_long_termers require_active=False).
+
         Returns one dict per tagged guest: {"name", "source", "nights",
         "checkout", "switch_date", "switch_date_is_exact", "manual_override",
         "revenue_since_switch", "total_paid"}, largest revenue_since_switch first.
         """
-        termers = self.get_long_termers(target_date, min_nights, lookback_weeks)
+        termers = self.get_long_termers(target_date, min_nights, lookback_weeks, require_active=False)
         results = []
         for t in termers:
             res_id = t["reservation_id"]
