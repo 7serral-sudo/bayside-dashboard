@@ -23,7 +23,7 @@ def _cmp_html(label, current, prev, higher_is_better=True, fmt_fn=str):
     """Return a coloured HTML string for a KPI sub-label comparison."""
     if current is None or prev is None:
         return f'{label}: n/a'
-    green, red = '#3FCF6E', '#F0564A'
+    green, red = 'var(--good)', 'var(--bad)'
     if current > prev:
         color = green if higher_is_better else red
         arrow = '↑'
@@ -43,7 +43,7 @@ def _web_cmp_html(label, current, prev, fmt_fn=str):
     """
     if current is None or prev is None:
         return f'{label}: n/a'
-    green, red = '#3FCF6E', '#F0564A'
+    green, red = 'var(--good)', 'var(--bad)'
     if current > prev:
         color, arrow = green, '↑'
     elif current < prev:
@@ -69,13 +69,13 @@ def _web_delta_html(current, prev):
     swing (e.g. 1 -> 25 as "+2400%") that a plain "was 1" avoids."""
     if prev is None:
         return ''
-    green, red = '#3FCF6E', '#F0564A'
+    green, red = 'var(--good)', 'var(--bad)'
     if current > prev:
         color, arrow = green, '↑'
     elif current < prev:
         color, arrow = red, '↓'
     else:
-        return f' <span style="color:#6b7280;font-size:11px">(was {int(prev)})</span>'
+        return f' <span style="color:var(--n5);font-size:11px">(was {int(prev)})</span>'
     return f' <span style="color:{color};font-size:11px">({arrow} was {int(prev)})</span>'
 
 
@@ -83,10 +83,10 @@ def _color_yoy(text):
     """Wrap the (+X%) or (-X%) part of a YoY label in a coloured span."""
     if '(+' in text:
         idx = text.index('(+')
-        return text[:idx] + f'<span style="color:#3FCF6E">{text[idx:]}</span>'
+        return text[:idx] + f'<span style="color:var(--good)">{text[idx:]}</span>'
     if '(-' in text:
         idx = text.index('(-')
-        return text[:idx] + f'<span style="color:#F0564A">{text[idx:]}</span>'
+        return text[:idx] + f'<span style="color:var(--bad)">{text[idx:]}</span>'
     return text
 
 SCRIPT_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -152,14 +152,14 @@ SOURCE_DISPLAY = {
     "Walk + Ph":   "Walk-in & Phone",
 }
 SOURCE_COLORS = {
-    "Booking.com": "#3B82F6",  # blue
-    "HW":          "#F97316",  # orange (Hostelworld)
+    "Booking.com": "#AF9176",  # blue
+    "HW":          "#9EAD8D",  # orange (Hostelworld)
     "Walk + Ph":   "#3FCF6E",  # green (Walk-in & Phone)
-    "Website":     "#EAB308",  # yellow
-    "Expedia":     "#A855F7",  # purple
-    "Agoda":       "#94A3B8",  # fallback grey for any other channel
+    "Website":     "#C98E6B",  # yellow
+    "Expedia":     "#7E8FA0",  # purple
+    "Agoda":       "#8C7A6C",  # fallback grey for any other channel
 }
-SOURCE_COLOR_FALLBACK = "#94A3B8"
+SOURCE_COLOR_FALLBACK = "#8C7A6C"
 
 
 # ---------------------------------------------------------------------------
@@ -305,9 +305,11 @@ def fetch_platform_reviews(service, sheet_id):
 
 
 # Room Type ADR column layout, as written by build_room_type_adr.py:
-#   A Month | B,C Private Rooms summary | D,E Pods summary
-#   | (Nights, ADR) per type in ROOM_TYPE_ORDER | All Rooms total.
+#   A Month | B,C Private Rooms summary | D,E Pods summary (both short-stay only)
+#   | (Nights, ADR) per type in ROOM_TYPE_ORDER (all guests) | All Rooms total
+#   | Long-termers (28+ nights, any room type).
 ROOM_TYPE_DETAIL_START_COL = 5
+LONG_TERM_ADR_COL = ROOM_TYPE_DETAIL_START_COL + len(ROOM_TYPE_ORDER) * 2 + 3
 
 
 def _room_type_detail(row):
@@ -328,7 +330,7 @@ def fetch_room_type_adr(service, sheet_id):
     """Returns dict with YTD ADR for private rooms, pods and each individual
     room type, or None if not found."""
     try:
-        rows = _values(service, sheet_id, "Room Type ADR!A3:U1000")
+        rows = _values(service, sheet_id, "Room Type ADR!A3:W1000")
         if not rows:
             return None
 
@@ -343,6 +345,7 @@ def fetch_room_type_adr(service, sheet_id):
                 return {
                     "private_adr": _fnum(r, 2),
                     "pods_adr": _fnum(r, 4),
+                    "long_term_adr": _fnum(r, LONG_TERM_ADR_COL, default=None),
                     "types": _room_type_detail(r),
                     "monthly": monthly_data,
                 }
@@ -372,16 +375,25 @@ def fetch_prev_ytd_room_type_adr(service, sheet_id, week_end_date):
     Picks the most recent row strictly before week_end_date rather than
     just "the second-to-last row", so it's correct whether or not this
     week's row has already been written by the time this runs.
+
+    A row without a long-termer YTD figure (column G) predates long-termers
+    being split out, so its private/pod ADRs still include them -- comparing
+    against it would show a jump that is only the change of definition, so
+    it reads as no comparison at all.
     """
     try:
-        rows = _values(service, sheet_id, "Room Type ADR Weekly!A2:E1000")
+        rows = _values(service, sheet_id, "Room Type ADR Weekly!A2:G1000")
         rows = [r for r in rows if r and r[0]]
         week_end_str = week_end_date.strftime("%d/%m/%Y")
         prior_rows = [r for r in rows if r[0] != week_end_str]
         if not prior_rows:
             return None
         prior = prior_rows[-1]
-        return {"private_adr": _fnum(prior, 3) or None, "pods_adr": _fnum(prior, 4) or None}
+        long_term = _fnum(prior, 6) or None
+        if long_term is None:
+            return None
+        return {"private_adr": _fnum(prior, 3) or None, "pods_adr": _fnum(prior, 4) or None,
+                "long_term_adr": long_term}
     except Exception:
         return None
 
@@ -893,7 +905,7 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, current_year: int
                 ly_occ = ly_booked / (LY_N_BEDS * ly_days) * 100
                 occ_pct_change = ((occ_pct - ly_occ) / ly_occ * 100)
                 occ_sign = "+" if occ_pct_change >= 0 else ""
-                occ_color = '#3FCF6E' if occ_pct_change >= 0 else '#F0564A'
+                occ_color = 'var(--good)' if occ_pct_change >= 0 else 'var(--bad)'
                 occ_part = f'<span style="color:{occ_color}">{occ_sign}{occ_pct_change:.0f}% occ</span> · '
             else:
                 occ_part = ""
@@ -901,7 +913,7 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, current_year: int
             if ly_rev:
                 rev_pct = ((rev - ly_rev) / ly_rev * 100)
                 rev_sign = "+" if rev_pct >= 0 else ""
-                rev_color = '#3FCF6E' if rev_pct >= 0 else '#F0564A'
+                rev_color = 'var(--good)' if rev_pct >= 0 else 'var(--bad)'
             else:
                 rev_pct, rev_sign, rev_color = 0, "", "#888888"
 
@@ -914,7 +926,7 @@ def build_monthly_cards_html(occ_monthly: dict, revenue: dict, current_year: int
           {yoy_text}
         </div>''')
     if not cards:
-        cards.append('      <div style="color: #6b7280; font-size: 13px;">No data yet</div>')
+        cards.append('      <div style="color: var(--n5); font-size: 13px;">No data yet</div>')
     return "\n".join(cards)
 
 
@@ -1282,6 +1294,8 @@ def build(sheet_id: str | None = None, log=print):
     if room_type_adr:
         private_adr = fmt_money(room_type_adr["private_adr"])
         pods_adr = fmt_money(room_type_adr["pods_adr"])
+        long_term_adr = (fmt_money(room_type_adr["long_term_adr"])
+                         if room_type_adr.get("long_term_adr") is not None else 'n/a')
         room_type_cards_html = build_room_type_cards_html(room_type_adr.get("types", []))
         _private_occ = _section_occupancy(room_type_adr.get("types", []), "private")
         _pods_occ = _section_occupancy(room_type_adr.get("types", []), "dorm")
@@ -1299,6 +1313,7 @@ def build(sheet_id: str | None = None, log=print):
     else:
         private_adr = 'n/a'
         pods_adr = 'n/a'
+        long_term_adr = 'n/a'
         private_occ = 'n/a'
         pods_occ = 'n/a'
         private_goal_note = 'n/a'
@@ -1319,9 +1334,13 @@ def build(sheet_id: str | None = None, log=print):
         pods_adr_lastweek = _cmp_html(
             'vs last week', room_type_adr["pods_adr"], prev_ytd_room_type_adr["pods_adr"],
             fmt_fn=fmt_money)
+        long_term_adr_lastweek = _cmp_html(
+            'vs last week', room_type_adr.get("long_term_adr"), prev_ytd_room_type_adr["long_term_adr"],
+            fmt_fn=fmt_money)
     else:
         private_adr_lastweek = 'vs last week: n/a'
         pods_adr_lastweek = 'vs last week: n/a'
+        long_term_adr_lastweek = 'vs last week: n/a'
 
     # -- Direct booking conversions -------------------------------------------
     # Long-termers staff have manually switched off OTA billing -- still
@@ -1533,6 +1552,8 @@ def build(sheet_id: str | None = None, log=print):
         "__ADR_GOAL_POD__":        pods_goal_note,
         "__PRIVATE_ADR_LASTWEEK__": private_adr_lastweek,
         "__PODS_ADR_LASTWEEK__":    pods_adr_lastweek,
+        "__LONG_TERM_ADR_YTD__":    long_term_adr,
+        "__LONG_TERM_ADR_LASTWEEK__": long_term_adr_lastweek,
         "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",
         "__GOAL_PCT__":            goal_pct_str,
         "__GOAL_WIDTH__":          goal_width,
