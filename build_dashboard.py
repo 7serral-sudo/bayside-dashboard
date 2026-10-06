@@ -101,6 +101,7 @@ DATA_2025_PATH = os.path.join(SCRIPT_DIR, "data_2025_reference.json")
 # overlay line, never the primary 2026 figures (which use each week's real
 # contemporaneous bed count).
 LY_N_BEDS = 83
+N_BEDS = 84  # current bed count (LY_N_BEDS above is last year's)
 
 # Full-year revenue goal. Progress is shown against how far through the year we
 # actually are, because 60% of the goal is ahead in June and behind in October
@@ -676,6 +677,75 @@ def fmt_date_human(date_str: str) -> str:
 # ---------------------------------------------------------------------------
 # Build dynamic HTML blocks
 # ---------------------------------------------------------------------------
+
+def build_goal_target(ytd_revenue, week_end_date, weekly_occ_pct, weekly_adr):
+    """Numbers for the "Goal target" section: where the revenue goal stands
+    against the year-elapsed pace line, what the rest of the year has to
+    average, and the occupancy/ADR combinations that deliver it. Computed
+    from sheet data only (no Cloudbeds calls) so it stays fast to build."""
+    year_end = date(week_end_date.year, 12, 31)
+    days_left = (year_end - week_end_date).days
+    weeks_left = days_left / 7
+    remaining = max(REVENUE_GOAL - ytd_revenue, 0)
+    days_in_year = (year_end - date(week_end_date.year, 1, 1)).days + 1
+    elapsed = (week_end_date - date(week_end_date.year, 1, 1)).days + 1
+    pace_line = REVENUE_GOAL * elapsed / days_in_year
+    req_week = remaining / weeks_left if weeks_left else 0
+    bed_nights = N_BEDS * days_left
+    run_week = N_BEDS * 7 * (weekly_occ_pct / 100) * weekly_adr
+    projected = ytd_revenue + run_week * weeks_left
+    occ_needed_at_adr = (remaining / (bed_nights * weekly_adr) * 100) if bed_nights and weekly_adr else None
+    grid = [(occ, remaining / (bed_nights * occ / 100)) for occ in (80, 85, 90, 93, 95)] if bed_nights else []
+    return {
+        "remaining": remaining, "days_left": days_left, "weeks_left": weeks_left,
+        "gap_to_line": ytd_revenue - pace_line, "pace_line": pace_line,
+        "req_week": req_week, "run_week": run_week, "projected": projected,
+        "occ_needed_at_adr": occ_needed_at_adr, "grid": grid,
+        "weekly_occ": weekly_occ_pct, "weekly_adr": weekly_adr,
+    }
+
+
+def build_goal_target_html(g):
+    ahead = g["gap_to_line"] >= 0
+    gap_txt = f'{fmt_money_k(abs(g["gap_to_line"]))} {"ahead of" if ahead else "behind"} the pace line'
+    run_col = "good" if g["run_week"] >= g["req_week"] else "bad"
+    proj_col = "good" if g["projected"] >= REVENUE_GOAL else "bad"
+
+    def card(label, value, sub, color=None):
+        style = f' style="color:var(--{color})"' if color else ""
+        return (f'      <div class="kpi-card"><div class="kpi-label">{label}</div>'
+                f'<div class="kpi-value num"{style}>{value}</div>'
+                f'<div class="kpi-sub">{sub}</div></div>')
+
+    cards = "\n".join([
+        '    <div class="cards c4" style="margin-bottom: var(--s4);">',
+        card("Still to go", fmt_money_k(g["remaining"]),
+             f'{g["days_left"]} days ({g["weeks_left"]:.1f} weeks) left'),
+        card("Required per week", fmt_money(g["req_week"]), "to land the goal by 31 Dec"),
+        card("Current run rate", fmt_money(g["run_week"]),
+             f'{g["weekly_occ"]:.1f}% occ at {fmt_money(g["weekly_adr"])} ADR, per week', run_col),
+        card("Projected finish", fmt_money_k(g["projected"]), "at the current run rate", proj_col),
+        '    </div>',
+    ])
+    rows = "\n".join(f'          <tr><td>{occ}%</td><td>{fmt_money(adr)}</td></tr>'
+                     for occ, adr in g["grid"])
+    table = "\n".join([
+        '    <div class="table-shell">',
+        '      <table class="edm">',
+        '        <thead><tr><th>Average occupancy, rest of year</th><th>ADR needed</th></tr></thead>',
+        '        <tbody>',
+        rows,
+        '        </tbody>',
+        '      </table>',
+        '    </div>',
+    ])
+    note = ""
+    if g["occ_needed_at_adr"]:
+        note = ('    <p class="note" style="margin-top: var(--s3);">'
+                f'At the current {fmt_money(g["weekly_adr"])} ADR the rest of the year needs '
+                f'<strong>{g["occ_needed_at_adr"]:.1f}%</strong> occupancy.</p>')
+    return cards, table, note, gap_txt, ("pos" if ahead else "neg")
+
 
 def build_direct_conversions_html(guests: list[dict]):
     """Table rows for the "Direct Booking Conversions" section -- one row per
@@ -1381,6 +1451,10 @@ def build(sheet_id: str | None = None, log=print):
     goal_aria = (f"{goal_pct:.0f} percent of the {goal_str} revenue goal, "
                  f"with {year_pct:.0f} percent of the year elapsed")
 
+    goal_target = build_goal_target(ytd_revenue, week_end_date,
+                                    latest_occ["week_occ"], latest_perf["adr"])
+    gt_cards, gt_table, gt_note, gt_gap, gt_gap_cls = build_goal_target_html(goal_target)
+
     # Plain-English reason revenue is ahead/behind pace: occupancy vs its
     # house-level goal, ADR vs its per-room-type targets. Only rendered for
     # the two clean-cut combinations (occupancy meets goal, or every ADR
@@ -1514,6 +1588,10 @@ def build(sheet_id: str | None = None, log=print):
         "__ROOM_ADR_CHART_LABELS__":   json.dumps(room_adr_labels),
         "__ROOM_ADR_PRIVATE_DATA__":   json.dumps(room_adr_private_data),
         "__ROOM_ADR_PODS_DATA__":      json.dumps(room_adr_pods_data),
+        "__GOAL_TARGET_CARDS__":       gt_cards,
+        "__GOAL_TARGET_TABLE__":       gt_table,
+        "__GOAL_TARGET_NOTE__":        gt_note,
+        "__GOAL_TARGET_GAP__":         gt_gap,
         "__DIRECT_CONV_COUNT__":       direct_conv_count,
         "__DIRECT_CONV_TOTAL__":       direct_conv_total,
         "__DIRECT_CONV_ROWS__":        direct_conv_rows_html,
