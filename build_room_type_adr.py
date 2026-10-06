@@ -26,7 +26,7 @@ import json
 import os
 import sys
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -102,6 +102,53 @@ def resolve_room_type_id(name: str) -> str | None:
             return rt_id
     return None
 
+
+# Long-termers get their own ADR so their discounted weekly rates don't drag
+# the Private Room / Pod figures (judged against the $90 / $37.50 short-stay
+# goals). Same definition as the "Long-termers in house" KPI
+# (CloudbedsClient.get_long_termers): back-to-back bookings under the same
+# guest name chained into one stay of more than 28 nights. Every night of a
+# qualifying chain counts as long-term, including its first 28.
+LONG_TERM_NIGHTS = 28
+# How far before the reporting window to look for earlier links of a chain, so
+# a guest who rolled over from last year still counts their pre-window nights.
+LONG_TERM_LOOKBACK_DAYS = 120
+
+
+def long_term_reservation_ids(reservations: list[dict], min_nights: int = LONG_TERM_NIGHTS) -> set[str]:
+    """reservationIDs belonging to a same-name chain of stays longer than
+    min_nights. Mirrors get_long_termers' chaining, but classifies whole
+    reservations rather than returning one row per guest. Classification is
+    recomputed every run (never cached): a short stay becomes long-term the
+    moment the guest books a back-to-back extension."""
+    by_name = defaultdict(list)
+    for r in reservations:
+        if str(r.get("status", "")).lower() in CANCEL_STATUSES:
+            continue
+        try:
+            ci = date.fromisoformat(r["startDate"])
+            co = date.fromisoformat(r["endDate"])
+        except (KeyError, ValueError):
+            continue
+        name = (r.get("guestName") or "").strip()
+        if name:
+            by_name[name].append((ci, co, r.get("reservationID") or ""))
+
+    ids = set()
+    for stays in by_name.values():
+        stays.sort()
+        chains = [[stays[0]]]
+        for s in stays[1:]:
+            if s[0] <= max(c[1] for c in chains[-1]):  # back-to-back or overlapping
+                chains[-1].append(s)
+            else:
+                chains.append([s])
+        for chain in chains:
+            nights = (max(c[1] for c in chain) - chain[0][0]).days
+            if nights > min_nights:
+                ids.update(c[2] for c in chain if c[2])
+    return ids
+
 MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
@@ -134,17 +181,27 @@ def save_cache(cache: dict):
         json.dump(cache, f)
 
 
-def _aggregate(contrib: dict, res_ids) -> dict:
-    """Sum per-reservation contributions into monthly[month][roomType] totals."""
-    monthly = defaultdict(lambda: defaultdict(lambda: {"nights": 0, "revenue": 0.0}))
+def _aggregate(contrib: dict, res_ids, long_term_ids: set[str]) -> dict:
+    """Sum per-reservation contributions into monthly[month][roomType] totals.
+
+    nights/revenue cover every guest (per-type occupancy needs them all);
+    lt_nights/lt_revenue are the long-termer share of those same totals.
+    """
+    monthly = defaultdict(lambda: defaultdict(
+        lambda: {"nights": 0, "revenue": 0.0, "lt_nights": 0, "lt_revenue": 0.0}))
     for res_id in res_ids:
         entry = contrib.get(res_id)
         if not entry:
             continue
+        is_lt = res_id in long_term_ids
         for month_key, types in entry["months"].items():
             for rt_id, vals in types.items():
-                monthly[month_key][rt_id]["nights"] += vals["nights"]
-                monthly[month_key][rt_id]["revenue"] += vals["revenue"]
+                m = monthly[month_key][rt_id]
+                m["nights"] += vals["nights"]
+                m["revenue"] += vals["revenue"]
+                if is_lt:
+                    m["lt_nights"] += vals["nights"]
+                    m["lt_revenue"] += vals["revenue"]
     return {mk: {rt: dict(v) for rt, v in types.items()} for mk, types in monthly.items()}
 
 
@@ -157,8 +214,16 @@ def fetch_and_aggregate(date_from: date, date_to: date) -> dict:
     # Overlap query (not check-in-only) so long-termers who checked in before
     # date_from -- but are still in house or checked out partway through the
     # window -- are not silently missed.
-    candidates = client.get_reservations_overlapping(date_from, date_to)
-    valid = [r for r in candidates if str(r.get("status", "")).lower() not in CANCEL_STATUSES]
+    # Fetched with a lookback so long-term chains that started before the
+    # window are measured at their true length; only reservations actually
+    # overlapping the window are costed below.
+    candidates = client.get_reservations_overlapping(
+        date_from - timedelta(days=LONG_TERM_LOOKBACK_DAYS), date_to)
+    long_term_ids = long_term_reservation_ids(candidates)
+    window_start = date_from.isoformat()
+    valid = [r for r in candidates
+             if str(r.get("status", "")).lower() not in CANCEL_STATUSES
+             and str(r.get("endDate") or "") >= window_start]
 
     # A cached reservation is only safe to reuse once its stay has ENDED before
     # the window closes; until then it can still accrue nights, so it must be
@@ -230,7 +295,7 @@ def fetch_and_aggregate(date_from: date, date_to: date) -> dict:
 
     # Only reservations in this window count towards the totals, so a stale
     # cache entry from an earlier window can never leak into the result.
-    return _aggregate(contrib, [r["reservationID"] for r in valid])
+    return _aggregate(contrib, [r["reservationID"] for r in valid], long_term_ids)
 
 
 # -- Sheet writing ------------------------------------------------------------
@@ -295,16 +360,19 @@ def write_sheet(monthly: dict, months_present: list[str]):
     private_beds = sum(b for _, b, sec in ROOM_TYPES.values() if sec == "private")
     dorm_beds = sum(b for _, b, sec in ROOM_TYPES.values() if sec == "dorm")
 
-    # Column layout: Month | Private Rooms summary | Pods summary | 7 individual types | All Rooms total
-    header1 = ["Month", f"Private Rooms ({private_beds} total)", "", f"Pods ({dorm_beds} total)", ""]
+    # Column layout: Month | Private Rooms summary | Pods summary | 7 individual types
+    # | All Rooms total | Long-termers. The Private/Pods summaries are short-stay
+    # guests only; the per-type and All Rooms columns include everyone.
+    header1 = ["Month", f"Private Rooms ({private_beds} total, excl. long-termers)", "",
+               f"Pods ({dorm_beds} total, excl. long-termers)", ""]
     header2 = ["", "Nights", "ADR ($)", "Nights", "ADR ($)"]
     for rt_id in ROOM_TYPE_ORDER:
         name, beds, _ = ROOM_TYPES[rt_id]
         unit = "beds" if beds > 1 else "room"
         header1 += [f"{name} ({beds} {unit})", ""]
         header2 += ["Nights", "ADR ($)"]
-    header1 += ["All Rooms (84 total)", ""]
-    header2 += ["Nights", "ADR ($)"]
+    header1 += ["All Rooms (84 total)", "", "Long-termers (28+ nights)", ""]
+    header2 += ["Nights", "ADR ($)", "Nights", "ADR ($)"]
 
     service.spreadsheets().values().update(
         spreadsheetId=sheet_id, range="Room Type ADR!A1", valueInputOption="RAW",
@@ -338,13 +406,13 @@ def write_sheet(monthly: dict, months_present: list[str]):
             _fmt(sid, 1, 2, c0, c0 + 2, bg=bg_l, bold=True, fg=BLACK, halign="CENTER"),
             _col_width(sid, c0, c0 + 2, 95),
         ]
-    c0 = detail_start + n_types * 2
-    reqs += [
-        _merge(sid, 0, c0, c0 + 2),
-        _fmt(sid, 0, 1, c0, c0 + 2, bg=GREY_DARK, bold=True, fg=WHITE, halign="CENTER"),
-        _fmt(sid, 1, 2, c0, c0 + 2, bg=GREY_LIGHT, bold=True, fg=BLACK, halign="CENTER"),
-        _col_width(sid, c0, c0 + 2, 100),
-    ]
+    for c0 in (detail_start + n_types * 2, detail_start + n_types * 2 + 2):  # All Rooms, Long-termers
+        reqs += [
+            _merge(sid, 0, c0, c0 + 2),
+            _fmt(sid, 0, 1, c0, c0 + 2, bg=GREY_DARK, bold=True, fg=WHITE, halign="CENTER"),
+            _fmt(sid, 1, 2, c0, c0 + 2, bg=GREY_LIGHT, bold=True, fg=BLACK, halign="CENTER"),
+            _col_width(sid, c0, c0 + 2, 100),
+        ]
 
     def _section_ids(section):
         return [rt_id for rt_id in ROOM_TYPE_ORDER if ROOM_TYPES[rt_id][2] == section]
@@ -353,56 +421,58 @@ def write_sheet(monthly: dict, months_present: list[str]):
     DORM_IDS = _section_ids("dorm")
 
     rows = []
-    ytd_totals = defaultdict(lambda: {"nights": 0, "revenue": 0.0})
+    ytd_totals = defaultdict(lambda: {"nights": 0, "revenue": 0.0, "lt_nights": 0, "lt_revenue": 0.0})
+    _EMPTY = {"nights": 0, "revenue": 0.0, "lt_nights": 0, "lt_revenue": 0.0}
+
+    def _adr(revenue, nights):
+        return round(revenue / nights, 2) if nights else 0
+
+    def _short_stay(totals, ids):
+        """(nights, revenue) for these room types with long-termers removed."""
+        n = sum(totals.get(i, _EMPTY)["nights"] - totals.get(i, _EMPTY)["lt_nights"] for i in ids)
+        r = sum(totals.get(i, _EMPTY)["revenue"] - totals.get(i, _EMPTY)["lt_revenue"] for i in ids)
+        return n, r
+
+    def _long_term(totals):
+        n = sum(totals.get(i, _EMPTY)["lt_nights"] for i in ROOM_TYPE_ORDER)
+        r = sum(totals.get(i, _EMPTY)["lt_revenue"] for i in ROOM_TYPE_ORDER)
+        return n, r
 
     for month_key in months_present:
         month_num = int(month_key.split("-")[1])
         month_name = MONTH_NAMES[month_num - 1]
         data = monthly.get(month_key, {})
 
-        def _sum(ids):
-            n = sum(data.get(i, {"nights": 0, "revenue": 0.0})["nights"] for i in ids)
-            r = sum(data.get(i, {"nights": 0, "revenue": 0.0})["revenue"] for i in ids)
-            return n, r
+        priv_nights, priv_revenue = _short_stay(data, PRIVATE_IDS)
+        pods_nights, pods_revenue = _short_stay(data, DORM_IDS)
 
-        priv_nights, priv_revenue = _sum(PRIVATE_IDS)
-        pods_nights, pods_revenue = _sum(DORM_IDS)
-        priv_adr = round(priv_revenue / priv_nights, 2) if priv_nights else 0
-        pods_adr = round(pods_revenue / pods_nights, 2) if pods_nights else 0
-
-        row = [month_name, priv_nights, priv_adr, pods_nights, pods_adr]
+        row = [month_name, priv_nights, _adr(priv_revenue, priv_nights),
+               pods_nights, _adr(pods_revenue, pods_nights)]
         all_nights, all_revenue = 0, 0.0
         for rt_id in ROOM_TYPE_ORDER:
-            v = data.get(rt_id, {"nights": 0, "revenue": 0.0})
-            nights, revenue = v["nights"], v["revenue"]
-            adr = round(revenue / nights, 2) if nights else 0
-            row += [nights, adr]
-            ytd_totals[rt_id]["nights"] += nights
-            ytd_totals[rt_id]["revenue"] += revenue
-            all_nights += nights
-            all_revenue += revenue
-        all_adr = round(all_revenue / all_nights, 2) if all_nights else 0
-        row += [all_nights, all_adr]
+            v = data.get(rt_id, _EMPTY)
+            row += [v["nights"], _adr(v["revenue"], v["nights"])]
+            for k in ytd_totals[rt_id]:
+                ytd_totals[rt_id][k] += v[k]
+            all_nights += v["nights"]
+            all_revenue += v["revenue"]
+        lt_nights, lt_revenue = _long_term(data)
+        row += [all_nights, _adr(all_revenue, all_nights), lt_nights, _adr(lt_revenue, lt_nights)]
         rows.append(row)
 
-    ytd_priv_nights = sum(ytd_totals[i]["nights"] for i in PRIVATE_IDS)
-    ytd_priv_revenue = sum(ytd_totals[i]["revenue"] for i in PRIVATE_IDS)
-    ytd_pods_nights = sum(ytd_totals[i]["nights"] for i in DORM_IDS)
-    ytd_pods_revenue = sum(ytd_totals[i]["revenue"] for i in DORM_IDS)
-    ytd_priv_adr = round(ytd_priv_revenue / ytd_priv_nights, 2) if ytd_priv_nights else 0
-    ytd_pods_adr = round(ytd_pods_revenue / ytd_pods_nights, 2) if ytd_pods_nights else 0
-
-    ytd_row = ["YTD", ytd_priv_nights, ytd_priv_adr, ytd_pods_nights, ytd_pods_adr]
+    ytd_priv_nights, ytd_priv_revenue = _short_stay(ytd_totals, PRIVATE_IDS)
+    ytd_pods_nights, ytd_pods_revenue = _short_stay(ytd_totals, DORM_IDS)
+    ytd_row = ["YTD", ytd_priv_nights, _adr(ytd_priv_revenue, ytd_priv_nights),
+               ytd_pods_nights, _adr(ytd_pods_revenue, ytd_pods_nights)]
     ytd_all_nights, ytd_all_revenue = 0, 0.0
     for rt_id in ROOM_TYPE_ORDER:
-        nights = ytd_totals[rt_id]["nights"]
-        revenue = ytd_totals[rt_id]["revenue"]
-        adr = round(revenue / nights, 2) if nights else 0
-        ytd_row += [nights, adr]
+        nights, revenue = ytd_totals[rt_id]["nights"], ytd_totals[rt_id]["revenue"]
+        ytd_row += [nights, _adr(revenue, nights)]
         ytd_all_nights += nights
         ytd_all_revenue += revenue
-    ytd_all_adr = round(ytd_all_revenue / ytd_all_nights, 2) if ytd_all_nights else 0
-    ytd_row += [ytd_all_nights, ytd_all_adr]
+    ytd_lt_nights, ytd_lt_revenue = _long_term(ytd_totals)
+    ytd_row += [ytd_all_nights, _adr(ytd_all_revenue, ytd_all_nights),
+                ytd_lt_nights, _adr(ytd_lt_revenue, ytd_lt_nights)]
     rows.append(ytd_row)
 
     service.spreadsheets().values().update(
@@ -410,7 +480,7 @@ def write_sheet(monthly: dict, months_present: list[str]):
         body={"values": rows},
     ).execute()
 
-    n_cols = 1 + (2 + n_types + 1) * 2
+    n_cols = 1 + (2 + n_types + 2) * 2
     for row_idx in range(len(rows)):
         ri = row_idx + 2
         bg = GREY_LIGHT if ri % 2 == 0 else WHITE
@@ -433,25 +503,35 @@ def write_sheet(monthly: dict, months_present: list[str]):
 WEEK_ADR_TAB = "Room Type ADR Weekly"
 
 
+def _section_totals() -> dict:
+    """Accumulator for blended ADR: short-stay private, short-stay pods, and
+    long-termers (any room type) as a third bucket of their own."""
+    return {k: {"nights": 0, "revenue": 0.0} for k in ("private", "dorm", "long_term")}
+
+
+def _bucket_adr(totals: dict, bucket: str):
+    n = totals[bucket]["nights"]
+    return round(totals[bucket]["revenue"] / n, 2) if n else None
+
+
 def ytd_section_adr(monthly: dict, months_present: list[str]) -> dict:
-    """Blended private/pod ADR across every month in `monthly` -- the same
-    roll-up write_sheet()'s YTD row uses, factored out so the weekly
-    snapshot below can reuse it without an extra Cloudbeds fetch (the
+    """Blended private/pod/long-termer ADR across every month in `monthly`
+    -- the same roll-up write_sheet()'s YTD row uses, factored out so the
+    weekly snapshot below can reuse it without an extra Cloudbeds fetch (the
     `monthly` dict passed in already covers the full YTD range)."""
-    totals = {"private": {"nights": 0, "revenue": 0.0}, "dorm": {"nights": 0, "revenue": 0.0}}
+    totals = _section_totals()
     for mk in months_present:
         for rt_id, v in monthly[mk].items():
             if rt_id not in ROOM_TYPES:
                 continue
             section = ROOM_TYPES[rt_id][2]
-            totals[section]["nights"] += v["nights"]
-            totals[section]["revenue"] += v["revenue"]
+            totals[section]["nights"] += v["nights"] - v["lt_nights"]
+            totals[section]["revenue"] += v["revenue"] - v["lt_revenue"]
+            totals["long_term"]["nights"] += v["lt_nights"]
+            totals["long_term"]["revenue"] += v["lt_revenue"]
 
-    def _adr(section):
-        n = totals[section]["nights"]
-        return round(totals[section]["revenue"] / n, 2) if n else None
-
-    return {"private_adr": _adr("private"), "pods_adr": _adr("dorm")}
+    return {"private_adr": _bucket_adr(totals, "private"), "pods_adr": _bucket_adr(totals, "dorm"),
+            "long_term_adr": _bucket_adr(totals, "long_term")}
 
 
 def fetch_week_section_adr(week_start: date, week_end: date) -> dict:
@@ -470,10 +550,14 @@ def fetch_week_section_adr(week_start: date, week_end: date) -> dict:
     the weekly pipeline, never from build_dashboard.py.
     """
     client = CloudbedsClient()
-    candidates = client.get_reservations_overlapping(week_start, week_end)
-    valid = [r for r in candidates if str(r.get("status", "")).lower() not in CANCEL_STATUSES]
+    candidates = client.get_reservations_overlapping(
+        week_start - timedelta(days=LONG_TERM_LOOKBACK_DAYS), week_end)
+    long_term_ids = long_term_reservation_ids(candidates)
+    valid = [r for r in candidates
+             if str(r.get("status", "")).lower() not in CANCEL_STATUSES
+             and str(r.get("endDate") or "") >= week_start.isoformat()]
 
-    totals = {"private": {"nights": 0, "revenue": 0.0}, "dorm": {"nights": 0, "revenue": 0.0}}
+    totals = _section_totals()
     for r in valid:
         res_id = r["reservationID"]
         try:
@@ -488,22 +572,21 @@ def fetch_week_section_adr(week_start: date, week_end: date) -> dict:
             rt_id = resolve_room_type_id(c["roomTypeName"])
             if rt_id is None or rt_id not in ROOM_TYPES:
                 continue
-            section = ROOM_TYPES[rt_id][2]
-            totals[section]["nights"] += 1
-            totals[section]["revenue"] += c["amount"]
-
-    def _adr(section):
-        n = totals[section]["nights"]
-        return round(totals[section]["revenue"] / n, 2) if n else None
+            bucket = "long_term" if res_id in long_term_ids else ROOM_TYPES[rt_id][2]
+            totals[bucket]["nights"] += 1
+            totals[bucket]["revenue"] += c["amount"]
 
     return {
-        "private_adr": _adr("private"), "pods_adr": _adr("dorm"),
+        "private_adr": _bucket_adr(totals, "private"), "pods_adr": _bucket_adr(totals, "dorm"),
+        "long_term_adr": _bucket_adr(totals, "long_term"),
         "private_nights": totals["private"]["nights"], "private_revenue": totals["private"]["revenue"],
         "pods_nights": totals["dorm"]["nights"], "pods_revenue": totals["dorm"]["revenue"],
+        "long_term_nights": totals["long_term"]["nights"], "long_term_revenue": totals["long_term"]["revenue"],
     }
 
 
-def append_week_adr(week_end: date, private_adr, pods_adr, private_ytd_adr, pods_ytd_adr, log=print):
+def append_week_adr(week_end: date, private_adr, pods_adr, private_ytd_adr, pods_ytd_adr,
+                    long_term_adr=None, long_term_ytd_adr=None, log=print):
     """Appends one row to the "Room Type ADR Weekly" tab, skipping if this
     week_end is already recorded (same duplicate-row guard used for
     Occupancy/Performance/Reviews/Website Analytics).
@@ -514,6 +597,10 @@ def append_week_adr(week_end: date, private_adr, pods_adr, private_ytd_adr, pods
     show whether the YTD number itself (the one actually displayed, e.g.
     "$70.60") is climbing or sliding, which a single week's ADR can't tell
     you on its own.
+
+    Columns F/G (long-termer week/YTD ADR) were added when long-termers were
+    split out of the private/pod figures. A row with them blank predates the
+    split, so its private/pod numbers still include long-termers.
     """
     sheet_id = os.environ.get("GOOGLE_SHEET_ID")
     service = sheets_client._build_service()
@@ -529,19 +616,22 @@ def append_week_adr(week_end: date, private_adr, pods_adr, private_ytd_adr, pods
         log(f"  WARNING: Room Type ADR Weekly row for {week_end_str} already exists -- skipping.")
         return
 
-    if not existing_dates:
-        service.spreadsheets().values().update(
-            spreadsheetId=sheet_id, range=f"{WEEK_ADR_TAB}!A1", valueInputOption="RAW",
-            body={"values": [["Week ending", "Private ADR", "Pod ADR", "Private ADR YTD", "Pod ADR YTD"]]},
-        ).execute()
+    # Rewritten every run (not just on an empty tab) so the F/G headers
+    # appear on a tab created before the long-termer split.
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id, range=f"{WEEK_ADR_TAB}!A1", valueInputOption="RAW",
+        body={"values": [["Week ending", "Private ADR", "Pod ADR", "Private ADR YTD", "Pod ADR YTD",
+                          "Long-termer ADR", "Long-termer ADR YTD"]]},
+    ).execute()
 
     service.spreadsheets().values().append(
-        spreadsheetId=sheet_id, range=f"{WEEK_ADR_TAB}!A2:E",
+        spreadsheetId=sheet_id, range=f"{WEEK_ADR_TAB}!A2:G",
         valueInputOption="RAW", insertDataOption="INSERT_ROWS",
-        body={"values": [[week_end_str, private_adr, pods_adr, private_ytd_adr, pods_ytd_adr]]},
+        body={"values": [[week_end_str, private_adr, pods_adr, private_ytd_adr, pods_ytd_adr,
+                          long_term_adr, long_term_ytd_adr]]},
     ).execute()
     log(f"  -> Room Type ADR Weekly: {week_end_str} private ${private_adr} (YTD ${private_ytd_adr}) "
-        f"· pods ${pods_adr} (YTD ${pods_ytd_adr})")
+        f"· pods ${pods_adr} (YTD ${pods_ytd_adr}) · long-termers ${long_term_adr} (YTD ${long_term_ytd_adr})")
 
 
 def main():
@@ -570,6 +660,9 @@ def main():
         revenue = ytd[rt_id]["revenue"]
         adr = revenue / nights if nights else 0
         print(f"  {name:22} {nights:5} nights   ${revenue:10,.2f} revenue   ADR ${adr:6.2f}")
+    split = ytd_section_adr(monthly, months_present)
+    print(f"\nShort-stay private ADR ${split['private_adr']} · short-stay pod ADR ${split['pods_adr']} "
+          f"· long-termer ADR ${split['long_term_adr']}")
 
     if args.dry_run:
         print("\nDry run -- not writing to sheet.")

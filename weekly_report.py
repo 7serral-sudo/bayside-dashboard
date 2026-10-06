@@ -637,7 +637,8 @@ def main():
             ytd_adr = build_room_type_adr.ytd_section_adr(monthly, months_present)
             build_room_type_adr.append_week_adr(
                 week_end, week_adr["private_adr"], week_adr["pods_adr"],
-                ytd_adr["private_adr"], ytd_adr["pods_adr"], log=log)
+                ytd_adr["private_adr"], ytd_adr["pods_adr"],
+                week_adr["long_term_adr"], ytd_adr["long_term_adr"], log=log)
         except Exception as exc:
             log(f"  WARNING: Weekly Room Type ADR update failed -- {exc}")
 
