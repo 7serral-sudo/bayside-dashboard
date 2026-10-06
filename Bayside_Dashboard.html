@@ -158,12 +158,19 @@ img { max-width: 100%; }
 /* Intro: a "Tap to enter" gate (browsers only allow sound after a tap), then
    the lounge walkthrough plays full screen with the voice-over, fades into
    the Chocolate background, and the login card fades in. JS adds .gate and
-   .intro, so without JS (or with reduced motion) the card simply shows. `cover` fills the screen; the footage is portrait,
-   so a wide screen sees its middle band -- the lounge and coffee table. */
+   .intro, so without JS (or with reduced motion) the card simply shows.
+   The footage is portrait, so the whole frame is shown uncropped (`contain`)
+   and a tiny pre-blurred copy of the same clip, stretched to `cover`, fills
+   the sides instead of flat bars. */
 .login-bg {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; object-position: 50% 55%;
+  object-fit: contain;
   opacity: 0; transition: opacity 1100ms ease;
+}
+.login-bg-blur {
+  object-fit: cover;
+  filter: blur(18px) brightness(0.8);
+  transform: scale(1.1);  /* hides the soft edges the blur leaves */
 }
 #login-screen.intro .login-bg { opacity: 1; }
 #login-screen.gate .login-card,
@@ -656,6 +663,9 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
 
 <!-- PASSWORD LOGIN SCREEN (mechanism unchanged; real auth coming separately) -->
 <div id="login-screen">
+  <video class="login-bg login-bg-blur" id="login-bg-blur" muted playsinline preload="none"
+         poster="/media/login-bg-blur-start.jpg" aria-hidden="true" tabindex="-1"
+         data-src="/media/login-bg-blur.mp4"></video>
   <video class="login-bg" id="login-bg" muted playsinline preload="none"
          poster="/media/login-bg-start.jpg" aria-hidden="true" tabindex="-1"
          data-src="/media/login-bg.mp4"></video>
@@ -1488,6 +1498,7 @@ window.addEventListener('DOMContentLoaded', function () {
 function startLoginVideo() {
   const screen = document.getElementById('login-screen');
   const v = document.getElementById('login-bg');
+  const blur = document.getElementById('login-bg-blur');
   const voice = document.getElementById('login-voice');
   const gate = document.getElementById('login-gate');
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -1505,13 +1516,16 @@ function startLoginVideo() {
     clearTimeout(stallTimer);
     screen.classList.remove('gate', 'intro');
     if (skipped === true) fadeOutVoice();
-    setTimeout(function () { v.pause(); v.removeAttribute('src'); v.load(); }, 1200);
+    setTimeout(function () {
+      [v, blur].forEach(function (el) { el.pause(); el.removeAttribute('src'); el.load(); });
+    }, 1200);
     setTimeout(function () { document.getElementById('password-input').focus(); }, 900);
   }
   function skip() { finish(true); }
 
   screen.classList.add('gate');
   v.src = v.dataset.src; v.preload = 'auto';
+  blur.src = blur.dataset.src; blur.preload = 'auto';
   voice.src = voice.dataset.src; voice.preload = 'auto';
   gate.focus();
 
@@ -1528,6 +1542,12 @@ function startLoginVideo() {
     document.addEventListener('keydown', skip, { once: true });
     const p = v.play();
     if (p && p.catch) p.catch(skip);
+    // Backdrop only: if it can't play, its blurred poster still fills the sides.
+    v.addEventListener('playing', function () {
+      blur.currentTime = v.currentTime;
+      const b = blur.play();
+      if (b && b.catch) b.catch(function () {});
+    }, { once: true });
     setTimeout(function () {
       const a = voice.play();
       if (a && a.catch) a.catch(function () {});  // no sound is fine; the video carries on
