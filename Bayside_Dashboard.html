@@ -155,10 +155,10 @@ img { max-width: 100%; }
   padding: var(--s5);
 }
 #login-screen.hidden { display: none; }
-/* Intro: the lounge walkthrough plays full screen on its own, fades into the
-   Chocolate background, then the login card fades in. JS adds .intro only
-   when the video will actually play, so without JS (or with reduced motion)
-   the card simply shows. `cover` fills the screen; the footage is portrait,
+/* Intro: a "Tap to enter" gate (browsers only allow sound after a tap), then
+   the lounge walkthrough plays full screen with the voice-over, fades into
+   the Chocolate background, and the login card fades in. JS adds .gate and
+   .intro, so without JS (or with reduced motion) the card simply shows. `cover` fills the screen; the footage is portrait,
    so a wide screen sees its middle band -- the lounge and coffee table. */
 .login-bg {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -166,7 +166,27 @@ img { max-width: 100%; }
   opacity: 0; transition: opacity 1100ms ease;
 }
 #login-screen.intro .login-bg { opacity: 1; }
+#login-screen.gate .login-card,
 #login-screen.intro .login-card { opacity: 0; transform: translateY(10px); visibility: hidden; }
+.login-gate {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s6);
+  background: none; border: none; color: #E2D5C5; font: inherit; cursor: pointer;
+  opacity: 0; visibility: hidden;
+  transition: opacity 500ms ease, visibility 0s linear 500ms;
+}
+#login-screen.gate .login-gate { opacity: 1; visibility: visible; transition: opacity 500ms ease; }
+.login-gate .login-mark { width: 190px; margin: 0; color: #E2D5C5; }
+.login-gate-cta {
+  padding: 12px 28px; border-radius: 999px;
+  border: 1px solid rgba(226,213,197,0.45);
+  font-size: var(--t-sm); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.login-gate:hover .login-gate-cta, .login-gate:focus-visible .login-gate-cta {
+  background: rgba(226,213,197,0.12); border-color: #E2D5C5;
+}
+.login-gate:focus-visible { outline: none; }
 .login-skip {
   position: absolute; right: var(--s5); bottom: var(--s5); z-index: 1;
   background: rgba(28,20,17,0.45); color: #E2D5C5;
@@ -639,6 +659,11 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
   <video class="login-bg" id="login-bg" muted playsinline preload="none"
          poster="/media/login-bg-start.jpg" aria-hidden="true" tabindex="-1"
          data-src="/media/login-bg.mp4"></video>
+  <audio id="login-voice" preload="none" data-src="/media/login-voice.mp3"></audio>
+  <button type="button" class="login-gate" id="login-gate">
+    <svg class="login-mark" viewBox="0 0 323.48 157.20" aria-hidden="true"><use href="#bh-brandmark"/></svg>
+    <span class="login-gate-cta">Tap to enter</span>
+  </button>
   <button type="button" class="login-skip" id="login-skip">Skip intro</button>
   <div class="login-card">
     <svg class="login-mark" viewBox="0 0 323.48 157.20" role="img" aria-label="Bayside House"><use href="#bh-brandmark"/></svg>
@@ -1430,6 +1455,7 @@ function authenticatePassword() {
   if (input.value === CORRECT_PASSWORD) {
     sessionStorage.setItem('authenticated', 'true');
     document.getElementById('login-bg').pause();
+    document.getElementById('login-voice').pause();
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('dashboard-content').classList.remove('hidden');
   } else {
@@ -1446,55 +1472,67 @@ window.addEventListener('DOMContentLoaded', function () {
     document.getElementById('login-screen').classList.remove('hidden');
     document.getElementById('dashboard-content').classList.add('hidden');
     startLoginVideo();
-    if (!document.getElementById('login-screen').classList.contains('intro')) {
+    if (!document.getElementById('login-screen').classList.contains('gate')) {
       document.getElementById('password-input').focus();
     }
   }
 });
-/* Intro video: only fetched when the login screen actually shows, so
-   signed-in visitors never download it. Plays full screen, fades into the
-   Chocolate background just before it ends, then the card fades in.
-   Reduced-motion visitors, a failed or blocked play, or a stalled load all
-   go straight to the card; Skip / any key does the same. */
+/* Intro: only fetched when the login screen actually shows, so signed-in
+   visitors never download it. Browsers block sound until the visitor
+   interacts, so it waits behind a "Tap to enter" gate while the video and
+   voice preload. The tap starts both; the video fades into the Chocolate
+   background just before it ends and the card fades in, while the voice
+   finishes its line. Reduced-motion visitors skip straight to the card; a
+   failed or stalled play does too. Skip / any key during the intro jumps
+   ahead and fades the voice out. */
 function startLoginVideo() {
   const screen = document.getElementById('login-screen');
   const v = document.getElementById('login-bg');
+  const voice = document.getElementById('login-voice');
+  const gate = document.getElementById('login-gate');
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  let done = false;
-  function finish() {
+  let done = false, stallTimer;
+  function fadeOutVoice() {
+    const step = setInterval(function () {
+      voice.volume = Math.max(0, voice.volume - 0.1);
+      if (voice.volume === 0) { clearInterval(step); voice.pause(); }
+    }, 40);
+  }
+  function finish(skipped) {
     if (done) return;
     done = true;
     clearTimeout(stallTimer);
-    screen.classList.remove('intro');
+    screen.classList.remove('gate', 'intro');
+    if (skipped === true) fadeOutVoice();
     setTimeout(function () { v.pause(); v.removeAttribute('src'); v.load(); }, 1200);
     setTimeout(function () { document.getElementById('password-input').focus(); }, 900);
   }
-  let stallTimer;
+  function skip() { finish(true); }
 
-  screen.classList.add('intro');
-  v.addEventListener('timeupdate', function () {
-    if (v.duration && v.duration - v.currentTime < 1.1) finish();
-  });
-  v.addEventListener('ended', finish);
-  v.addEventListener('error', finish);
-  document.getElementById('login-skip').addEventListener('click', finish);
-  document.addEventListener('keydown', finish, { once: true });
+  screen.classList.add('gate');
+  v.src = v.dataset.src; v.preload = 'auto';
+  voice.src = voice.dataset.src; voice.preload = 'auto';
+  gate.focus();
 
-  // Chrome refuses to play muted video in a background tab, so a dashboard
-  // opened behind another tab waits until it is actually looked at.
-  function begin() {
-    stallTimer = setTimeout(finish, 12000);
-    v.src = v.dataset.src;
+  gate.addEventListener('click', function () {
+    screen.classList.remove('gate');
+    screen.classList.add('intro');
+    stallTimer = setTimeout(skip, 12000);
+    v.addEventListener('timeupdate', function () {
+      if (v.duration && v.duration - v.currentTime < 1.1) finish();
+    });
+    v.addEventListener('ended', finish);
+    v.addEventListener('error', skip);
+    document.getElementById('login-skip').addEventListener('click', skip);
+    document.addEventListener('keydown', skip, { once: true });
     const p = v.play();
-    if (p && p.catch) p.catch(finish);
-  }
-  if (!document.hidden) return begin();
-  document.addEventListener('visibilitychange', function onVisible() {
-    if (document.hidden) return;
-    document.removeEventListener('visibilitychange', onVisible);
-    begin();
-  });
+    if (p && p.catch) p.catch(skip);
+    setTimeout(function () {
+      const a = voice.play();
+      if (a && a.catch) a.catch(function () {});  // no sound is fine; the video carries on
+    }, 200);
+  }, { once: true });
 }
 
 /* ─── theme ──────────────────────────────────────────────────── */
