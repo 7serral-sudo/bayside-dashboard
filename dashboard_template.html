@@ -158,11 +158,11 @@ img { max-width: 100%; }
 /* Intro: the lounge walkthrough plays full screen on its own, fades into the
    Chocolate background, then the login card fades in. JS adds .intro only
    when the video will actually play, so without JS (or with reduced motion)
-   the card simply shows. `contain` shows the whole frame uncropped; on a
-   wide screen the portrait footage sits centred on Chocolate either side. */
+   the card simply shows. `cover` fills the screen; the footage is portrait,
+   so a wide screen sees its middle band -- the lounge and coffee table. */
 .login-bg {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: contain; background: #3C2D28;
+  object-fit: cover; object-position: 50% 55%;
   opacity: 0; transition: opacity 1100ms ease;
 }
 #login-screen.intro .login-bg { opacity: 1; }
