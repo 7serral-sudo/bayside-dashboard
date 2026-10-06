@@ -147,38 +147,45 @@ img { max-width: 100%; }
    ============================================================ */
 #login-screen {
   position: fixed; inset: 0; z-index: 9999;
+  /* Always brand Chocolate, in light theme too: the intro video fades into it. */
   background:
     radial-gradient(1200px 600px at 50% -10%, rgba(226,213,197,0.08), transparent 60%),
-    var(--n0);
+    #3C2D28;
   display: flex; align-items: center; justify-content: center;
   padding: var(--s5);
 }
 #login-screen.hidden { display: none; }
-/* Lounge walkthrough behind the login card: plays once and holds on its last
-   frame (lights up). Portrait footage, so `cover` shows the middle band on a
-   wide screen -- the seating and coffee table. The scrim keeps the card
-   legible while the footage is still dark and as it brightens. */
+/* Intro: the lounge walkthrough plays full screen on its own, fades into the
+   Chocolate background, then the login card fades in. JS adds .intro only
+   when the video will actually play, so without JS (or with reduced motion)
+   the card simply shows. `contain` shows the whole frame uncropped; on a
+   wide screen the portrait footage sits centred on Chocolate either side. */
 .login-bg {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; object-position: 50% 62%;
+  object-fit: contain; background: #3C2D28;
+  opacity: 0; transition: opacity 1100ms ease;
 }
-.login-scrim {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(480px 380px at 50% 50%, rgba(28,20,17,0.45), transparent 70%),
-    linear-gradient(rgba(28,20,17,0.12), rgba(28,20,17,0.32));
+#login-screen.intro .login-bg { opacity: 1; }
+#login-screen.intro .login-card { opacity: 0; transform: translateY(10px); visibility: hidden; }
+.login-skip {
+  position: absolute; right: var(--s5); bottom: var(--s5); z-index: 1;
+  background: rgba(28,20,17,0.45); color: #E2D5C5;
+  border: 1px solid rgba(226,213,197,0.25); border-radius: 999px;
+  padding: 6px 14px; font: inherit; font-size: var(--t-xs); letter-spacing: 0.06em;
+  cursor: pointer; opacity: 0; visibility: hidden;
+  transition: opacity 400ms ease, visibility 0s linear 400ms;
 }
+#login-screen.intro .login-skip { opacity: 0.85; visibility: visible; transition: opacity 400ms ease 1200ms; }
 .login-card {
   position: relative; z-index: 1;
   width: 100%; max-width: 380px;
-  background: color-mix(in srgb, var(--n2) 78%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  backdrop-filter: blur(14px) saturate(1.1);
+  background: var(--n2);
   border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: inset 0 1px 0 var(--line-inner), var(--shadow);
   padding: var(--s7) var(--s6);
   text-align: center;
+  transition: opacity 700ms ease 500ms, transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 500ms, visibility 0s;
 }
 .login-mark { display: block; width: 150px; height: auto; margin: 0 auto var(--s5); color: var(--n7); }
 .login-title { font-size: var(--t-lg); }
@@ -631,8 +638,8 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
 <div id="login-screen">
   <video class="login-bg" id="login-bg" muted playsinline preload="none"
          poster="/media/login-bg-start.jpg" aria-hidden="true" tabindex="-1"
-         data-src="/media/login-bg.mp4" data-end="/media/login-bg-end.jpg"></video>
-  <div class="login-scrim" aria-hidden="true"></div>
+         data-src="/media/login-bg.mp4"></video>
+  <button type="button" class="login-skip" id="login-skip">Skip intro</button>
   <div class="login-card">
     <svg class="login-mark" viewBox="0 0 323.48 157.20" role="img" aria-label="Bayside House"><use href="#bh-brandmark"/></svg>
     <h1 class="login-title visually-hidden">Bayside House</h1>
@@ -1290,22 +1297,56 @@ window.addEventListener('DOMContentLoaded', function () {
   } else {
     document.getElementById('login-screen').classList.remove('hidden');
     document.getElementById('dashboard-content').classList.add('hidden');
-    document.getElementById('password-input').focus();
     startLoginVideo();
+    if (!document.getElementById('login-screen').classList.contains('intro')) {
+      document.getElementById('password-input').focus();
+    }
   }
 });
-/* Only fetched when the login screen actually shows -- signed-in visitors
-   never download it. Reduced-motion visitors get the final, lit-up frame as a
-   still instead of the walkthrough. */
+/* Intro video: only fetched when the login screen actually shows, so
+   signed-in visitors never download it. Plays full screen, fades into the
+   Chocolate background just before it ends, then the card fades in.
+   Reduced-motion visitors, a failed or blocked play, or a stalled load all
+   go straight to the card; Skip / any key does the same. */
 function startLoginVideo() {
+  const screen = document.getElementById('login-screen');
   const v = document.getElementById('login-bg');
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    v.poster = v.dataset.end;
-    return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  let done = false;
+  function finish() {
+    if (done) return;
+    done = true;
+    clearTimeout(stallTimer);
+    screen.classList.remove('intro');
+    setTimeout(function () { v.pause(); v.removeAttribute('src'); v.load(); }, 1200);
+    setTimeout(function () { document.getElementById('password-input').focus(); }, 900);
   }
-  v.src = v.dataset.src;
-  const p = v.play();
-  if (p && p.catch) p.catch(function () { v.poster = v.dataset.end; });
+  let stallTimer;
+
+  screen.classList.add('intro');
+  v.addEventListener('timeupdate', function () {
+    if (v.duration && v.duration - v.currentTime < 1.1) finish();
+  });
+  v.addEventListener('ended', finish);
+  v.addEventListener('error', finish);
+  document.getElementById('login-skip').addEventListener('click', finish);
+  document.addEventListener('keydown', finish, { once: true });
+
+  // Chrome refuses to play muted video in a background tab, so a dashboard
+  // opened behind another tab waits until it is actually looked at.
+  function begin() {
+    stallTimer = setTimeout(finish, 12000);
+    v.src = v.dataset.src;
+    const p = v.play();
+    if (p && p.catch) p.catch(finish);
+  }
+  if (!document.hidden) return begin();
+  document.addEventListener('visibilitychange', function onVisible() {
+    if (document.hidden) return;
+    document.removeEventListener('visibilitychange', onVisible);
+    begin();
+  });
 }
 
 /* ─── theme ──────────────────────────────────────────────────── */
