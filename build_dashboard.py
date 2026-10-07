@@ -307,9 +307,12 @@ def fetch_platform_reviews(service, sheet_id):
 # Room Type ADR column layout, as written by build_room_type_adr.py:
 #   A Month | B,C Private Rooms summary | D,E Pods summary (both short-stay only)
 #   | (Nights, ADR) per type in ROOM_TYPE_ORDER (all guests) | All Rooms total
-#   | Long-termers (28+ nights, any room type).
+#   | Long-termers (28+ nights, any room type) | Long-termers in private rooms
+#   | Long-termers in pods.
 ROOM_TYPE_DETAIL_START_COL = 5
 LONG_TERM_ADR_COL = ROOM_TYPE_DETAIL_START_COL + len(ROOM_TYPE_ORDER) * 2 + 3
+LONG_TERM_PRIVATE_ADR_COL = LONG_TERM_ADR_COL + 2
+LONG_TERM_PODS_ADR_COL = LONG_TERM_ADR_COL + 4
 
 
 def _room_type_detail(row):
@@ -330,7 +333,7 @@ def fetch_room_type_adr(service, sheet_id):
     """Returns dict with YTD ADR for private rooms, pods and each individual
     room type, or None if not found."""
     try:
-        rows = _values(service, sheet_id, "Room Type ADR!A3:W1000")
+        rows = _values(service, sheet_id, "Room Type ADR!A3:AC1000")
         if not rows:
             return None
 
@@ -346,6 +349,8 @@ def fetch_room_type_adr(service, sheet_id):
                     "private_adr": _fnum(r, 2),
                     "pods_adr": _fnum(r, 4),
                     "long_term_adr": _fnum(r, LONG_TERM_ADR_COL, default=None),
+                    "long_term_private_adr": _fnum(r, LONG_TERM_PRIVATE_ADR_COL, default=None),
+                    "long_term_pods_adr": _fnum(r, LONG_TERM_PODS_ADR_COL, default=None),
                     "types": _room_type_detail(r),
                     "monthly": monthly_data,
                 }
@@ -1296,6 +1301,10 @@ def build(sheet_id: str | None = None, log=print):
         pods_adr = fmt_money(room_type_adr["pods_adr"])
         long_term_adr = (fmt_money(room_type_adr["long_term_adr"])
                          if room_type_adr.get("long_term_adr") is not None else 'n/a')
+        lt_private_adr = (fmt_money(room_type_adr["long_term_private_adr"])
+                          if room_type_adr.get("long_term_private_adr") else 'n/a')
+        lt_pods_adr = (fmt_money(room_type_adr["long_term_pods_adr"])
+                       if room_type_adr.get("long_term_pods_adr") else 'n/a')
         room_type_cards_html = build_room_type_cards_html(room_type_adr.get("types", []))
         _private_occ = _section_occupancy(room_type_adr.get("types", []), "private")
         _pods_occ = _section_occupancy(room_type_adr.get("types", []), "dorm")
@@ -1314,6 +1323,7 @@ def build(sheet_id: str | None = None, log=print):
         private_adr = 'n/a'
         pods_adr = 'n/a'
         long_term_adr = 'n/a'
+        lt_private_adr = lt_pods_adr = 'n/a'
         private_occ = 'n/a'
         pods_occ = 'n/a'
         private_goal_note = 'n/a'
@@ -1553,6 +1563,8 @@ def build(sheet_id: str | None = None, log=print):
         "__PRIVATE_ADR_LASTWEEK__": private_adr_lastweek,
         "__PODS_ADR_LASTWEEK__":    pods_adr_lastweek,
         "__LONG_TERM_ADR_YTD__":    long_term_adr,
+        "__LONG_TERM_PRIVATE_ADR__": lt_private_adr,
+        "__LONG_TERM_PODS_ADR__":   lt_pods_adr,
         "__LONG_TERM_ADR_LASTWEEK__": long_term_adr_lastweek,
         "__REVENUE_GOAL_NUM__":    f"{REVENUE_GOAL:.0f}",
         "__GOAL_PCT__":            goal_pct_str,

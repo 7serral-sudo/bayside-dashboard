@@ -371,8 +371,9 @@ def write_sheet(monthly: dict, months_present: list[str]):
         unit = "beds" if beds > 1 else "room"
         header1 += [f"{name} ({beds} {unit})", ""]
         header2 += ["Nights", "ADR ($)"]
-    header1 += ["All Rooms (84 total)", "", "Long-termers (28+ nights)", ""]
-    header2 += ["Nights", "ADR ($)", "Nights", "ADR ($)"]
+    header1 += ["All Rooms (84 total)", "", "Long-termers (28+ nights)", "",
+                "Long-termers - Private rooms", "", "Long-termers - Pods", ""]
+    header2 += ["Nights", "ADR ($)"] * 4
 
     service.spreadsheets().values().update(
         spreadsheetId=sheet_id, range="Room Type ADR!A1", valueInputOption="RAW",
@@ -406,7 +407,8 @@ def write_sheet(monthly: dict, months_present: list[str]):
             _fmt(sid, 1, 2, c0, c0 + 2, bg=bg_l, bold=True, fg=BLACK, halign="CENTER"),
             _col_width(sid, c0, c0 + 2, 95),
         ]
-    for c0 in (detail_start + n_types * 2, detail_start + n_types * 2 + 2):  # All Rooms, Long-termers
+    # All Rooms, Long-termers (all), Long-termers in private rooms, Long-termers in pods
+    for c0 in (detail_start + n_types * 2 + k for k in (0, 2, 4, 6)):
         reqs += [
             _merge(sid, 0, c0, c0 + 2),
             _fmt(sid, 0, 1, c0, c0 + 2, bg=GREY_DARK, bold=True, fg=WHITE, halign="CENTER"),
@@ -433,9 +435,9 @@ def write_sheet(monthly: dict, months_present: list[str]):
         r = sum(totals.get(i, _EMPTY)["revenue"] - totals.get(i, _EMPTY)["lt_revenue"] for i in ids)
         return n, r
 
-    def _long_term(totals):
-        n = sum(totals.get(i, _EMPTY)["lt_nights"] for i in ROOM_TYPE_ORDER)
-        r = sum(totals.get(i, _EMPTY)["lt_revenue"] for i in ROOM_TYPE_ORDER)
+    def _long_term(totals, ids=ROOM_TYPE_ORDER):
+        n = sum(totals.get(i, _EMPTY)["lt_nights"] for i in ids)
+        r = sum(totals.get(i, _EMPTY)["lt_revenue"] for i in ids)
         return n, r
 
     for month_key in months_present:
@@ -457,7 +459,10 @@ def write_sheet(monthly: dict, months_present: list[str]):
             all_nights += v["nights"]
             all_revenue += v["revenue"]
         lt_nights, lt_revenue = _long_term(data)
-        row += [all_nights, _adr(all_revenue, all_nights), lt_nights, _adr(lt_revenue, lt_nights)]
+        ltp_nights, ltp_revenue = _long_term(data, PRIVATE_IDS)
+        ltd_nights, ltd_revenue = _long_term(data, DORM_IDS)
+        row += [all_nights, _adr(all_revenue, all_nights), lt_nights, _adr(lt_revenue, lt_nights),
+                ltp_nights, _adr(ltp_revenue, ltp_nights), ltd_nights, _adr(ltd_revenue, ltd_nights)]
         rows.append(row)
 
     ytd_priv_nights, ytd_priv_revenue = _short_stay(ytd_totals, PRIVATE_IDS)
@@ -471,8 +476,12 @@ def write_sheet(monthly: dict, months_present: list[str]):
         ytd_all_nights += nights
         ytd_all_revenue += revenue
     ytd_lt_nights, ytd_lt_revenue = _long_term(ytd_totals)
+    ytd_ltp_nights, ytd_ltp_revenue = _long_term(ytd_totals, PRIVATE_IDS)
+    ytd_ltd_nights, ytd_ltd_revenue = _long_term(ytd_totals, DORM_IDS)
     ytd_row += [ytd_all_nights, _adr(ytd_all_revenue, ytd_all_nights),
-                ytd_lt_nights, _adr(ytd_lt_revenue, ytd_lt_nights)]
+                ytd_lt_nights, _adr(ytd_lt_revenue, ytd_lt_nights),
+                ytd_ltp_nights, _adr(ytd_ltp_revenue, ytd_ltp_nights),
+                ytd_ltd_nights, _adr(ytd_ltd_revenue, ytd_ltd_nights)]
     rows.append(ytd_row)
 
     service.spreadsheets().values().update(
@@ -480,7 +489,7 @@ def write_sheet(monthly: dict, months_present: list[str]):
         body={"values": rows},
     ).execute()
 
-    n_cols = 1 + (2 + n_types + 2) * 2
+    n_cols = 1 + (2 + n_types + 4) * 2
     for row_idx in range(len(rows)):
         ri = row_idx + 2
         bg = GREY_LIGHT if ri % 2 == 0 else WHITE
