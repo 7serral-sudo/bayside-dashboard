@@ -23,6 +23,7 @@ from ga4_client import GA4Client
 import sheets_client
 import html_report
 import build_room_type_adr
+import payments_compare
 
 # ---------------------------------------------------------------------------
 # Source normalisation
@@ -648,6 +649,14 @@ def main():
             write_direct_conversions(conversions, log=log)
         except Exception as exc:
             log(f"  WARNING: Direct Conversions update failed -- {exc}")
+
+        log("Updating Stripe vs Cloudbeds monthly payments ...")
+        try:
+            pay_monthly = payments_compare.fetch_monthly_payments(client, year_start, week_end)
+            payments_compare.write_tab(pay_monthly, monthly_revenues, week_end.year,
+                                       week_end.month, log=log)
+        except Exception as exc:
+            log(f"  WARNING: Stripe vs Cloudbeds update failed -- {exc}")
     else:
         log("GOOGLE_SHEET_ID not set -- skipping sheet write.")
 

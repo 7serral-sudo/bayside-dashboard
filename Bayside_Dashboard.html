@@ -854,6 +854,38 @@ html.js-anim .reveal.in { opacity: 1; transform: none; transition: opacity 400ms
     </div>
   </section>
 
+  <!-- ═══════════ STRIPE VS CLOUDBEDS ═══════════ -->
+  <section class="block wrap reveal" id="stripe" aria-labelledby="stripe-h">
+    <div class="block-head">
+      <h2 id="stripe-h">Stripe vs Cloudbeds</h2>
+      <p class="note">Monthly card money: what Stripe received against what Cloudbeds recorded (net of refunds)</p>
+    </div>
+    <div class="cards c4" style="margin-bottom: var(--s4);">
+      <div class="kpi-card"><div class="kpi-label">Stripe</div><div class="kpi-value num">$603,591.00</div><div class="kpi-sub">9 months with a Stripe figure</div></div>
+      <div class="kpi-card"><div class="kpi-label">Cloudbeds card payments (net)</div><div class="kpi-value num">$627,980.79</div><div class="kpi-sub">after refunds, same months</div></div>
+      <div class="kpi-card"><div class="kpi-label">Difference</div><div class="kpi-value num" style="color:var(--bad)">-$24,389.79</div><div class="kpi-sub">Stripe is 3.9% below Cloudbeds</div></div>
+      <div class="kpi-card"><div class="kpi-label">Cash (not in Stripe)</div><div class="kpi-value num">$7,431.74</div><div class="kpi-sub">recorded in Cloudbeds as cash</div></div>
+    </div>
+    <div class="table-shell">
+      <table class="edm">
+        <thead><tr><th>Month</th><th>Stripe</th><th>Cloudbeds card</th><th>Refunds</th><th>Card net</th><th>Stripe vs net</th><th>Cash</th><th>Cloudbeds revenue</th></tr></thead>
+        <tbody>
+          <tr><td>Jan</td><td>$79,758.00</td><td>$87,397.32</td><td>$2,986.37</td><td>$84,410.95</td><td><span class="neg">-$4,652.95</span></td><td>$425.90</td><td>$94,495.62</td></tr>
+          <tr><td>Feb</td><td>$63,700.00</td><td>$79,256.31</td><td>$3,789.43</td><td>$75,466.88</td><td><span class="neg">-$11,766.88</span></td><td>$580.00</td><td>$67,974.45</td></tr>
+          <tr><td>Mar</td><td>$85,165.00</td><td>$86,409.61</td><td>$3,527.64</td><td>$82,881.97</td><td><span class="pos">+$2,283.03</span></td><td>$720.00</td><td>$94,669.18</td></tr>
+          <tr><td>Apr</td><td>$79,199.00</td><td>$78,600.19</td><td>$489.24</td><td>$78,110.95</td><td><span class="pos">+$1,088.05</span></td><td>$0.00</td><td>$74,108.87</td></tr>
+          <tr><td>May</td><td>$64,806.00</td><td>$68,900.40</td><td>$623.66</td><td>$68,276.74</td><td><span class="neg">-$3,470.74</span></td><td>$292.00</td><td>$69,951.24</td></tr>
+          <tr><td>Jun</td><td>$53,684.00</td><td>$53,181.32</td><td>$830.83</td><td>$52,350.49</td><td><span class="pos">+$1,333.51</span></td><td>$175.00</td><td>$60,667.91</td></tr>
+          <tr><td>Jul</td><td>$55,989.00</td><td>$60,793.12</td><td>$1,516.35</td><td>$59,276.77</td><td><span class="neg">-$3,287.77</span></td><td>$226.00</td><td>$61,139.57</td></tr>
+          <tr><td>Aug</td><td>$48,412.00</td><td>$53,229.00</td><td>$1,758.19</td><td>$51,470.81</td><td><span class="neg">-$3,058.81</span></td><td>$2,074.84</td><td>$54,812.73</td></tr>
+          <tr><td>Sep</td><td>$72,878.00</td><td>$78,196.15</td><td>$2,460.92</td><td>$75,735.23</td><td><span class="neg">-$2,857.23</span></td><td>$2,938.00</td><td>$75,191.42</td></tr>
+          <tr><td>Oct</td><td>—</td><td>$21,411.08</td><td>$2,790.04</td><td>$18,621.04</td><td>—</td><td>$1,050.00</td><td>$16,644.17</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top: var(--s3);">Stripe figures are typed into the sheet by hand each month. Card payments are counted in the month they were taken, so a payment late in one month can land in the next month in Stripe.</p>
+  </section>
+
   <!-- ═══════════ THIS WEEK ═══════════ -->
   <section class="block wrap reveal" id="week" aria-labelledby="week-h">
     <div class="block-head">

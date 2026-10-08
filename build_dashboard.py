@@ -764,6 +764,79 @@ def build_goal_target_html(g):
     return cards, table, note, gap_txt, ("pos" if ahead else "neg")
 
 
+def fetch_stripe_compare(service, sheet_id):
+    """Rows from the "Stripe vs Cloudbeds" tab (Cloudbeds side written by
+    weekly_report.py, Stripe column typed in by hand). None if the tab is
+    missing or empty."""
+    try:
+        rows = _values(service, sheet_id, "Stripe vs Cloudbeds!A2:G13")
+        out = []
+        for r in rows:
+            if not r or not r[0]:
+                continue
+            stripe = _fnum(r, 1, default=None)
+            card_net = _fnum(r, 4)
+            out.append({"month": str(r[0]), "stripe": stripe, "card_gross": _fnum(r, 2),
+                        "refunds": _fnum(r, 3), "card_net": card_net, "cash": _fnum(r, 5),
+                        "revenue": _fnum(r, 6),
+                        "diff": (stripe - card_net) if stripe is not None else None})
+        return out or None
+    except Exception:
+        return None
+
+
+def build_stripe_compare_html(rows):
+    """(cards, table) for the Stripe vs Cloudbeds section. Only months with a
+    Stripe figure count toward the totals, so a month still waiting on its
+    Stripe number can't show up as a false gap."""
+    if not rows:
+        return "", '    <p class="note">No data yet</p>'
+    have = [r for r in rows if r["stripe"] is not None]
+    t_stripe = sum(r["stripe"] for r in have)
+    t_net = sum(r["card_net"] for r in have)
+    t_cash = sum(r["cash"] for r in have)
+    gap = t_stripe - t_net
+    pct = (gap / t_net * 100) if t_net else 0
+    gap_col = "good" if gap >= 0 else "bad"
+
+    def card(label, value, sub, color=None):
+        style = f' style="color:var(--{color})"' if color else ""
+        return (f'      <div class="kpi-card"><div class="kpi-label">{label}</div>'
+                f'<div class="kpi-value num"{style}>{value}</div><div class="kpi-sub">{sub}</div></div>')
+
+    n = len(have)
+    cards = "\n".join([
+        '    <div class="cards c4" style="margin-bottom: var(--s4);">',
+        card("Stripe", fmt_money(t_stripe), f"{n} month{'s' if n != 1 else ''} with a Stripe figure"),
+        card("Cloudbeds card payments (net)", fmt_money(t_net), "after refunds, same months"),
+        card("Difference", f'{"+" if gap >= 0 else "-"}{fmt_money(abs(gap))}',
+             f'Stripe is {abs(pct):.1f}% {"above" if gap >= 0 else "below"} Cloudbeds', gap_col),
+        card("Cash (not in Stripe)", fmt_money(t_cash), "recorded in Cloudbeds as cash"),
+        '    </div>',
+    ])
+    body = []
+    for r in rows:
+        if r["diff"] is None:
+            stripe_c, diff_c = "—", "—"
+        else:
+            stripe_c = fmt_money(r["stripe"])
+            cls = "pos" if r["diff"] >= 0 else "neg"
+            diff_c = f'<span class="{cls}">{"+" if r["diff"] >= 0 else "-"}{fmt_money(abs(r["diff"]))}</span>'
+        body.append(
+            f'          <tr><td>{r["month"]}</td><td>{stripe_c}</td><td>{fmt_money(r["card_gross"])}</td>'
+            f'<td>{fmt_money(r["refunds"])}</td><td>{fmt_money(r["card_net"])}</td>'
+            f'<td>{diff_c}</td><td>{fmt_money(r["cash"])}</td><td>{fmt_money(r["revenue"])}</td></tr>')
+    table = "\n".join([
+        '    <div class="table-shell">',
+        '      <table class="edm">',
+        '        <thead><tr><th>Month</th><th>Stripe</th><th>Cloudbeds card</th><th>Refunds</th>'
+        '<th>Card net</th><th>Stripe vs net</th><th>Cash</th><th>Cloudbeds revenue</th></tr></thead>',
+        '        <tbody>', "\n".join(body), '        </tbody>',
+        '      </table>', '    </div>',
+    ])
+    return cards, table
+
+
 def build_direct_conversions_html(guests: list[dict]):
     """Table rows for the "Direct Booking Conversions" section -- one row per
     long-termer staff have manually switched off OTA billing, still counted
@@ -1170,6 +1243,8 @@ def build(sheet_id: str | None = None, log=print):
 
     log("  -> Reading Direct Conversions tab ...")
     direct_conversions = fetch_direct_conversions(service, sheet_id)
+    log("  -> Reading Stripe vs Cloudbeds tab ...")
+    stripe_cards, stripe_table = build_stripe_compare_html(fetch_stripe_compare(service, sheet_id))
 
     occ_monthly = {w["month"]: w["month_occ"] for w in occ_weeks if w["month"] and w["month_occ"] is not None}
     ref_2025 = load_2025_reference()
@@ -1625,6 +1700,8 @@ def build(sheet_id: str | None = None, log=print):
         "__GOAL_TARGET_TABLE__":       gt_table,
         "__GOAL_TARGET_NOTE__":        gt_note,
         "__GOAL_TARGET_GAP__":         gt_gap,
+        "__STRIPE_CARDS__":            stripe_cards,
+        "__STRIPE_TABLE__":            stripe_table,
         "__DIRECT_CONV_COUNT__":       direct_conv_count,
         "__DIRECT_CONV_TOTAL__":       direct_conv_total,
         "__DIRECT_CONV_ROWS__":        direct_conv_rows_html,
